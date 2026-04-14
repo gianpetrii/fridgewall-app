@@ -13,6 +13,7 @@ create table if not exists public.saved_places (
   lng double precision not null,
   radius_meters integer not null default 500,
   active boolean not null default true,
+  notify_hours_before integer not null default 24,
   created_at timestamptz not null default now()
 );
 

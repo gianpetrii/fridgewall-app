@@ -11,8 +11,6 @@ import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from 
 import { Container } from '../../components/layout/Container';
 import { Button } from '../../components/ui/Button';
 
-const HOURS_OPTIONS = [6, 12, 24, 48];
-
 function SettingRow({ icon, title, subtitle, right }: {
   icon: string; title: string; subtitle?: string; right: React.ReactNode;
 }) {
@@ -33,7 +31,6 @@ function SettingRow({ icon, title, subtitle, right }: {
 export default function ProfileScreen() {
   const { user, signOut } = useAuthStore();
   const [notifyProximity, setNotifyProximity] = useState(true);
-  const [notifyHoursBefore, setNotifyHoursBefore] = useState(24);
   const [backgroundTracking, setBackgroundTracking] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [loadingPrefs, setLoadingPrefs] = useState(true);
@@ -43,10 +40,7 @@ export default function ProfileScreen() {
     (async () => {
       const { data } = await supabase
         .from('notification_preferences').select('*').eq('user_id', user.id).single();
-      if (data) {
-        setNotifyProximity(data.notify_proximity);
-        setNotifyHoursBefore(data.notify_hours_before);
-      }
+      if (data) setNotifyProximity(data.notify_proximity);
       setLoadingPrefs(false);
     })();
   }, [user]);
@@ -58,9 +52,7 @@ export default function ProfileScreen() {
       Alert.alert('Sin permisos', 'Habilitá las notificaciones en Configuración del sistema.');
       return;
     }
-    if (token !== 'local-only') {
-      await savePushToken(user.id, token);
-    }
+    if (token !== 'local-only') await savePushToken(user.id, token);
     Alert.alert('Notificaciones activadas', 'Las alertas de proximidad están listas.');
   }
 
@@ -78,7 +70,7 @@ export default function ProfileScreen() {
     if (!user) return;
     setSavingPrefs(true);
     await supabase.from('notification_preferences').upsert(
-      { user_id: user.id, notify_proximity: notifyProximity, notify_hours_before: notifyHoursBefore },
+      { user_id: user.id, notify_proximity: notifyProximity },
       { onConflict: 'user_id' }
     );
     setSavingPrefs(false);
@@ -117,7 +109,7 @@ export default function ProfileScreen() {
           </View>
 
           <Text className="px-5 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-widest">Notificaciones</Text>
-          <View className="mx-5 bg-white border border-zinc-200 rounded-xl overflow-hidden mb-5">
+          <View className="mx-5 bg-white border border-zinc-200 rounded-xl overflow-hidden mb-6">
             <TouchableOpacity onPress={handleEnablePush}>
               <SettingRow icon="🔔" title="Activar push" subtitle="Permitir alertas en este dispositivo"
                 right={<Text className="text-zinc-400 text-xl">›</Text>} />
@@ -132,21 +124,10 @@ export default function ProfileScreen() {
                 trackColor={{ false: '#d4d4d8', true: '#4f46e5' }} thumbColor="#fff" />} />
           </View>
 
-          <Text className="px-5 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-widest">Anticipación</Text>
-          <View className="mx-5 bg-white border border-zinc-200 rounded-xl p-4 mb-6 gap-3">
-            <Text className="text-sm text-zinc-500">Notificarme con anticipación de</Text>
-            <View className="flex-row gap-2">
-              {HOURS_OPTIONS.map((h) => (
-                <TouchableOpacity key={h} onPress={() => setNotifyHoursBefore(h)}
-                  className={`flex-1 py-2.5 rounded-xl items-center border ${
-                    notifyHoursBefore === h ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-zinc-300'
-                  }`}>
-                  <Text className={`text-sm font-bold ${notifyHoursBefore === h ? 'text-white' : 'text-zinc-600'}`}>
-                    {h}h
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View className="mx-5 bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-6">
+            <Text className="text-sm text-indigo-700 leading-5">
+              La anticipación de alertas se configura individualmente en cada ubicación guardada.
+            </Text>
           </View>
 
           <View className="mx-5 mb-3">

@@ -4,7 +4,7 @@ import {
   Modal, ScrollView, ActivityIndicator, FlatList,
   TextInput, Keyboard,
 } from 'react-native';
-import MapView, { Marker, Circle, Region } from 'react-native-maps';
+import MapView, { Marker, Circle, Region, MapPressEvent } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SavedPlace } from '../../types';
 
@@ -206,28 +206,42 @@ export function PlaceFormModal({ visible, initialPlace, initialRegion, onSave, o
             ) : null}
           </View>
 
-          {/* Mapa */}
-          {lat != null && lng != null && (
-            <View className="gap-1.5">
-              <Text className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Mapa</Text>
-              <View className="rounded-xl overflow-hidden" style={{ height: 200 }}>
-                <MapView
-                  ref={mapRef}
-                  style={{ flex: 1 }}
-                  initialRegion={{ latitude: lat, longitude: lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }}
-                >
-                  <Marker coordinate={{ latitude: lat, longitude: lng }} />
-                  <Circle
-                    center={{ latitude: lat, longitude: lng }}
-                    radius={radius}
-                    fillColor="rgba(79,70,229,0.12)"
-                    strokeColor="#4f46e5"
-                    strokeWidth={2}
-                  />
-                </MapView>
-              </View>
+          {/* Mapa — siempre visible, toque para ajustar coordenadas */}
+          <View className="gap-1.5">
+            <Text className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Mapa</Text>
+            <View className="rounded-xl overflow-hidden" style={{ height: 220 }}>
+              <MapView
+                ref={mapRef}
+                style={{ flex: 1 }}
+                initialRegion={
+                  lat != null && lng != null
+                    ? { latitude: lat, longitude: lng, latitudeDelta: 0.02, longitudeDelta: 0.02 }
+                    : defaultRegion
+                }
+                onPress={(e: MapPressEvent) => {
+                  setLat(e.nativeEvent.coordinate.latitude);
+                  setLng(e.nativeEvent.coordinate.longitude);
+                  if (!selectedAddress) setSelectedAddress('Ubicación marcada manualmente');
+                }}
+              >
+                {lat != null && lng != null && (
+                  <>
+                    <Marker coordinate={{ latitude: lat, longitude: lng }} />
+                    <Circle
+                      center={{ latitude: lat, longitude: lng }}
+                      radius={radius}
+                      fillColor="rgba(79,70,229,0.12)"
+                      strokeColor="#4f46e5"
+                      strokeWidth={2}
+                    />
+                  </>
+                )}
+              </MapView>
             </View>
-          )}
+            <Text className="text-xs text-zinc-400 text-center">
+              {lat != null ? `${lat.toFixed(5)}, ${lng?.toFixed(5)}` : 'Buscá una dirección o tocá el mapa'}
+            </Text>
+          </View>
 
           {/* Radio */}
           <View className="gap-2">
