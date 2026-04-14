@@ -25,10 +25,23 @@ interface Props {
 }
 
 async function handleShare(event: AppEvent) {
-  const start = new Date(event.starts_at).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' });
+  const start = new Date(event.starts_at).toLocaleString('es-AR', { dateStyle: 'full', timeStyle: 'short' });
+  const end = new Date(event.ends_at).toLocaleTimeString('es-AR', { timeStyle: 'short' });
+  const mapsUrl = Platform.OS === 'ios'
+    ? `https://maps.apple.com/?q=${encodeURIComponent(event.venue)}&ll=${event.lat},${event.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${event.lat},${event.lng}`;
+
   await Share.share({
     title: event.title,
-    message: `📍 ${event.title}\n🏟 ${event.venue}\n🕐 ${start}\n\nCompartido desde HappeningNow`,
+    message: [
+      `🎯 ${event.title}`,
+      `📍 ${event.venue}`,
+      `🕐 ${start} – ${end}`,
+      `👥 ${EVENT_SIZE_ATTENDANCE[event.size]}`,
+      event.description ? `\n${event.description}` : '',
+      `\n🗺 Ver en mapa: ${mapsUrl}`,
+      '\nCompartido desde HappeningNow',
+    ].filter(Boolean).join('\n'),
   });
 }
 

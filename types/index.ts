@@ -36,8 +36,11 @@ export interface AppEvent {
   starts_at: string;
   ends_at: string;
   venue: string;
+  address?: string;
   description?: string;
   image_url?: string;
+  ticket_url?: string;
+  source?: string;
 }
 
 export interface SavedPlace {

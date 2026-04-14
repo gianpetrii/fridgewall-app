@@ -3,12 +3,15 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 
+const ADMIN_UID = process.env.EXPO_PUBLIC_ADMIN_UID ?? '';
+
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.35 }}>{emoji}</Text>;
 }
 
 export default function AppLayout() {
-  const { session, loading } = useAuthStore();
+  const { session, loading, user } = useAuthStore();
+  const isAdmin = !!ADMIN_UID && user?.id === ADMIN_UID;
 
   useEffect(() => {
     if (!loading && !session) router.replace('/(auth)/login');
@@ -51,6 +54,14 @@ export default function AppLayout() {
       <Tabs.Screen
         name="profile"
         options={{ title: 'Perfil', tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} /> }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: 'Admin',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
+          tabBarItemStyle: isAdmin ? {} : { display: 'none' },
+        }}
       />
     </Tabs>
   );

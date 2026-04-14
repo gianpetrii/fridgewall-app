@@ -4,6 +4,48 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- Events
+create table if not exists public.events (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  category text not null check (category in ('concert','sports','festival','march','other')),
+  size text not null check (size in ('small','medium','large','massive')) default 'medium',
+  lat double precision not null,
+  lng double precision not null,
+  radius_meters integer not null default 800,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  venue text not null,
+  address text,
+  description text,
+  image_url text,
+  ticket_url text,
+  source text not null default 'manual',
+  external_id text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique(source, external_id)
+);
+
+alter table public.events enable row level security;
+
+-- Lectura pública (cualquier usuario autenticado puede leer eventos)
+create policy "Authenticated users can read events"
+  on public.events for select
+  to authenticated
+  using (active = true);
+
+-- Solo service_role puede insertar/actualizar (Edge Functions y admin)
+create policy "Service role can manage events"
+  on public.events for all
+  to service_role
+  using (true) with check (true);
+
+create index if not exists events_starts_at_idx on public.events(starts_at);
+create index if not exists events_category_idx on public.events(category);
+create index if not exists events_active_idx on public.events(active);
+
+
 -- Saved Places
 create table if not exists public.saved_places (
   id uuid primary key default uuid_generate_v4(),
