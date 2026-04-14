@@ -115,7 +115,7 @@ export function PlaceFormModal({ visible, initialPlace, onSave, onClose }: Place
             </View>
           ) : null}
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

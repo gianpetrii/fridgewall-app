@@ -19,7 +19,9 @@ export function PlaceCard({ place, onEdit, onDelete, onToggleActive }: PlaceCard
           </View>
           <View className="flex-1">
             <Text className="text-base font-semibold text-zinc-900" numberOfLines={1}>{place.name}</Text>
-            <Text className="text-xs text-zinc-400 mt-0.5">Radio: {place.radius_meters} m</Text>
+            <Text className="text-xs text-zinc-400 mt-0.5">
+              Radio: {place.radius_meters}m · Alerta: {place.notify_hours_before ?? 24}h antes
+            </Text>
           </View>
         </View>
         <Switch

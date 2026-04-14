@@ -22,6 +22,7 @@ export interface SavedPlace {
   lng: number;
   radius_meters: number;
   active: boolean;
+  notify_hours_before: number;
   created_at: string;
 }
 
