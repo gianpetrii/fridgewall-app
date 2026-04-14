@@ -1,21 +1,14 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Platform, Share, Alert } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import * as Calendar from 'expo-calendar';
 import { AppEvent, EVENT_SIZE_LABELS, EVENT_SIZE_ATTENDANCE } from '../../types';
 
 const CATEGORY_LABELS: Record<AppEvent['category'], string> = {
   concert: 'Recital', sports: 'Deporte', festival: 'Festival', march: 'Marcha', other: 'Otro',
 };
 
-const CATEGORY_COLORS: Record<AppEvent['category'], string> = {
-  concert: '#4f46e5', sports: '#0891b2', festival: '#d97706', march: '#dc2626', other: '#6b7280',
-};
-
-const SIZE_COLORS: Record<AppEvent['size'], string> = {
-  small: '#10b981',
-  medium: '#f59e0b',
-  large: '#ef4444',
-  massive: '#7c3aed',
-};
+const ACCENT = '#4f46e5';
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -31,11 +24,36 @@ interface Props {
   onClose: () => void;
 }
 
+async function handleShare(event: AppEvent) {
+  const start = new Date(event.starts_at).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' });
+  await Share.share({
+    title: event.title,
+    message: `📍 ${event.title}\n🏟 ${event.venue}\n🕐 ${start}\n\nCompartido desde HappeningNow`,
+  });
+}
+
+async function handleAddToCalendar(event: AppEvent) {
+  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Sin permisos', 'Habilitá el acceso al calendario en Configuración.');
+    return;
+  }
+  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+  const defaultCal = calendars.find((c) => c.allowsModifications) ?? calendars[0];
+  if (!defaultCal) { Alert.alert('Error', 'No se encontró un calendario disponible.'); return; }
+  await Calendar.createEventAsync(defaultCal.id, {
+    title: event.title,
+    location: event.venue,
+    startDate: new Date(event.starts_at),
+    endDate: new Date(event.ends_at),
+    notes: event.description ?? '',
+    alarms: [{ relativeOffset: -60 }],
+  });
+  Alert.alert('Guardado', `"${event.title}" fue agregado a tu calendario.`);
+}
+
 export function EventDetailSheet({ event, onClose }: Props) {
   if (!event) return null;
-  const color = CATEGORY_COLORS[event.category];
-  const sizeColor = SIZE_COLORS[event.size];
-
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity className="flex-1 bg-black/30" activeOpacity={1} onPress={onClose} />
@@ -47,11 +65,11 @@ export function EventDetailSheet({ event, onClose }: Props) {
 
           {/* Badges */}
           <View className="flex-row gap-2 mb-3 flex-wrap">
-            <View style={{ backgroundColor: color + '15', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ color, fontSize: 12, fontWeight: '700' }}>{CATEGORY_LABELS[event.category]}</Text>
+            <View style={{ backgroundColor: ACCENT + '12', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: ACCENT, fontSize: 12, fontWeight: '700' }}>{CATEGORY_LABELS[event.category]}</Text>
             </View>
-            <View style={{ backgroundColor: sizeColor + '15', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ color: sizeColor, fontSize: 12, fontWeight: '700' }}>
+            <View style={{ backgroundColor: '#f4f4f5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#52525b', fontSize: 12, fontWeight: '700' }}>
                 {EVENT_SIZE_LABELS[event.size]} · {EVENT_SIZE_ATTENDANCE[event.size]}
               </Text>
             </View>
@@ -69,8 +87,26 @@ export function EventDetailSheet({ event, onClose }: Props) {
             <InfoRow icon="📍" label="Radio de impacto" value={formatRadius(event.radius_meters)} />
           </View>
 
+          {/* Acciones */}
+          <View className="flex-row gap-3 mb-5">
+            <TouchableOpacity
+              onPress={() => handleShare(event)}
+              className="flex-1 flex-row items-center justify-center gap-2 bg-white border border-zinc-300 rounded-xl py-3"
+            >
+              <Feather name="share" size={16} color="#52525b" />
+              <Text className="text-sm font-semibold text-zinc-700">Compartir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleAddToCalendar(event)}
+              className="flex-1 flex-row items-center justify-center gap-2 bg-indigo-600 rounded-xl py-3"
+            >
+              <Feather name="calendar" size={16} color="#fff" />
+              <Text className="text-sm font-semibold text-white">Al calendario</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Mapa — solo en native */}
-          {Platform.OS !== 'web' && <EventMap event={event} color={color} />}
+          {Platform.OS !== 'web' && <EventMap event={event} color={ACCENT} />}
 
           {/* Descripción */}
           {event.description ? (

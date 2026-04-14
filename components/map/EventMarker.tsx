@@ -2,13 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Marker, Circle } from 'react-native-maps';
 import { AppEvent } from '../../types';
-const CATEGORY_COLORS: Record<AppEvent['category'], string> = {
-  concert: '#4f46e5',
-  sports: '#0891b2',
-  festival: '#d97706',
-  march: '#dc2626',
-  other: '#6b7280',
-};
+const ACCENT = '#4f46e5';
 
 const CATEGORY_ICONS: Record<AppEvent['category'], string> = {
   concert: '🎵',
@@ -24,15 +18,13 @@ interface EventMarkerProps {
 }
 
 export function EventMarker({ event, onPress }: EventMarkerProps) {
-  const color = CATEGORY_COLORS[event.category];
-
   return (
     <>
       <Circle
         center={{ latitude: event.lat, longitude: event.lng }}
         radius={event.radius_meters}
-        fillColor={`${color}25`}
-        strokeColor={`${color}80`}
+        fillColor={`${ACCENT}20`}
+        strokeColor={`${ACCENT}60`}
         strokeWidth={1.5}
       />
       <Marker
@@ -40,7 +32,7 @@ export function EventMarker({ event, onPress }: EventMarkerProps) {
         onPress={() => onPress(event)}
         tracksViewChanges={false}
       >
-        <View style={[styles.marker, { backgroundColor: color }]}>
+        <View style={[styles.marker, { backgroundColor: ACCENT }]}>
           <Text style={styles.icon}>{CATEGORY_ICONS[event.category]}</Text>
         </View>
       </Marker>

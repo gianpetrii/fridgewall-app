@@ -10,6 +10,7 @@ import { registerForPushNotifications, savePushToken } from '../../lib/notificat
 import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '../../lib/geofencing';
 import { Container } from '../../components/layout/Container';
 import { Button } from '../../components/ui/Button';
+import { scheduleLocalNotification } from '../../lib/notifications';
 
 function SettingRow({ icon, title, subtitle, right }: {
   icon: string; title: string; subtitle?: string; right: React.ReactNode;
@@ -132,6 +133,23 @@ export default function ProfileScreen() {
 
           <View className="mx-5 mb-3">
             <Button label="Guardar preferencias" onPress={handleSave} loading={savingPrefs} />
+          </View>
+
+          {/* Sección de prueba — solo desarrollo */}
+          <Text className="px-5 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-widest">Desarrollo</Text>
+          <View className="mx-5 mb-6">
+            <Button
+              label="Probar notificación local"
+              variant="secondary"
+              onPress={async () => {
+                await scheduleLocalNotification(
+                  '⚡ Evento cerca: Recital de Coldplay',
+                  'Entraste al radio de impacto del Estadio Monumental. Posibles cortes de tráfico.',
+                  { eventId: 'evt-001' }
+                );
+                Alert.alert('Notificación enviada', 'Deberías verla aparecer en segundos.');
+              }}
+            />
           </View>
 
           <TouchableOpacity className="mx-5 py-4 items-center"

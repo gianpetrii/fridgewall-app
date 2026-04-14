@@ -6,13 +6,7 @@ const CATEGORY_LABELS: Record<AppEvent['category'], string> = {
   concert: 'Recital', sports: 'Deporte', festival: 'Festival', march: 'Marcha', other: 'Otro',
 };
 
-const CATEGORY_COLORS: Record<AppEvent['category'], string> = {
-  concert: '#4f46e5',
-  sports: '#0891b2',
-  festival: '#d97706',
-  march: '#dc2626',
-  other: '#6b7280',
-};
+const ACCENT = '#4f46e5';
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -31,14 +25,13 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onPress, distance, compact }: EventCardProps) {
-  const color = CATEGORY_COLORS[event.category];
   return (
     <TouchableOpacity
       onPress={() => onPress(event)}
       activeOpacity={0.8}
       className="mx-5 mb-3 bg-white border border-zinc-200 rounded-xl overflow-hidden"
     >
-      <View style={{ width: 3, position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: color }} />
+      <View style={{ width: 3, position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: ACCENT }} />
       <View className="pl-4 pr-4 py-3.5 ml-1">
         <View className="flex-row items-start justify-between gap-2">
           <Text className="text-base font-bold text-zinc-900 flex-1 leading-snug" numberOfLines={2}>
@@ -52,8 +45,8 @@ export function EventCard({ event, onPress, distance, compact }: EventCardProps)
         </View>
         <Text className="text-sm text-zinc-500 mt-1" numberOfLines={1}>{event.venue}</Text>
         <View className="flex-row items-center gap-2 mt-2.5">
-          <View style={{ backgroundColor: color + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-            <Text style={{ color, fontSize: 11, fontWeight: '700' }}>{CATEGORY_LABELS[event.category]}</Text>
+          <View style={{ backgroundColor: ACCENT + '12', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+            <Text style={{ color: ACCENT, fontSize: 11, fontWeight: '700' }}>{CATEGORY_LABELS[event.category]}</Text>
           </View>
           <Text className="text-xs text-zinc-400">
             {formatTime(event.starts_at)} – {formatTime(event.ends_at)}

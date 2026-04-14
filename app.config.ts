@@ -52,6 +52,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     [
+      'expo-calendar',
+      {
+        calendarPermission: 'HappeningNow necesita acceso al calendario para guardar eventos.',
+      },
+    ],
+    [
       'expo-location',
       {
         locationAlwaysAndWhenInUsePermission:
