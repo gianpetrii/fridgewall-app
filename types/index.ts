@@ -1,9 +1,35 @@
 export type EventCategory = 'concert' | 'sports' | 'festival' | 'march' | 'other';
 
+// Tamaño estimado del evento → determina el radio de impacto
+// small: <2k personas → 400m | medium: 2k-15k → 800m | large: 15k-50k → 1500m | massive: >50k → 2500m
+export type EventSize = 'small' | 'medium' | 'large' | 'massive';
+
+export const EVENT_SIZE_LABELS: Record<EventSize, string> = {
+  small: 'Pequeño',
+  medium: 'Mediano',
+  large: 'Grande',
+  massive: 'Masivo',
+};
+
+export const EVENT_SIZE_ATTENDANCE: Record<EventSize, string> = {
+  small: 'Hasta 2.000 personas',
+  medium: '2.000 – 15.000 personas',
+  large: '15.000 – 50.000 personas',
+  massive: 'Más de 50.000 personas',
+};
+
+export const EVENT_SIZE_RADIUS: Record<EventSize, number> = {
+  small: 400,
+  medium: 800,
+  large: 1500,
+  massive: 2500,
+};
+
 export interface AppEvent {
   id: string;
   title: string;
   category: EventCategory;
+  size: EventSize;
   lat: number;
   lng: number;
   radius_meters: number;

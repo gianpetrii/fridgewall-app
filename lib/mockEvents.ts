@@ -1,4 +1,4 @@
-import { AppEvent } from '../types';
+import { AppEvent, EVENT_SIZE_RADIUS } from '../types';
 
 const today = new Date();
 const tomorrow = new Date(today);
@@ -17,22 +17,23 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-001',
     title: 'Recital de Coldplay',
     category: 'concert',
+    size: 'massive',
     lat: -34.5447,
     lng: -58.4512,
-    radius_meters: 800,
+    radius_meters: EVENT_SIZE_RADIUS.massive,
     starts_at: dateAt(today, 20, 0),
     ends_at: dateAt(today, 23, 30),
     venue: 'Estadio Monumental, Núñez',
     description: 'Tour Music of the Spheres. Se esperan 80.000 personas. Intensos cortes en Av. del Libertador y accesos.',
-    image_url: undefined,
   },
   {
     id: 'evt-002',
     title: 'River Plate vs Boca Juniors',
     category: 'sports',
+    size: 'massive',
     lat: -34.5454,
     lng: -58.4497,
-    radius_meters: 1000,
+    radius_meters: EVENT_SIZE_RADIUS.massive,
     starts_at: dateAt(today, 17, 0),
     ends_at: dateAt(today, 19, 30),
     venue: 'Estadio Monumental, Núñez',
@@ -42,9 +43,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-003',
     title: 'Marcha Federal Universitaria',
     category: 'march',
+    size: 'large',
     lat: -34.6083,
     lng: -58.3712,
-    radius_meters: 600,
+    radius_meters: EVENT_SIZE_RADIUS.large,
     starts_at: dateAt(tomorrow, 14, 0),
     ends_at: dateAt(tomorrow, 18, 0),
     venue: 'Plaza de Mayo, CABA',
@@ -54,9 +56,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-004',
     title: 'Lollapalooza Argentina 2026',
     category: 'festival',
+    size: 'massive',
     lat: -34.4381,
     lng: -58.5028,
-    radius_meters: 1200,
+    radius_meters: EVENT_SIZE_RADIUS.massive,
     starts_at: dateAt(tomorrow, 12, 0),
     ends_at: dateAt(tomorrow, 23, 59),
     venue: 'Hipódromo de San Isidro',
@@ -66,9 +69,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-005',
     title: 'Luna Park: La Mona Jiménez',
     category: 'concert',
+    size: 'medium',
     lat: -34.5992,
     lng: -58.3692,
-    radius_meters: 400,
+    radius_meters: EVENT_SIZE_RADIUS.medium,
     starts_at: dateAt(tomorrow, 21, 30),
     ends_at: dateAt(dayAfter, 1, 0),
     venue: 'Luna Park, Puerto Madero',
@@ -78,9 +82,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-006',
     title: 'Maratón de Buenos Aires',
     category: 'other',
+    size: 'large',
     lat: -34.6158,
     lng: -58.3731,
-    radius_meters: 1500,
+    radius_meters: EVENT_SIZE_RADIUS.large,
     starts_at: dateAt(dayAfter, 7, 0),
     ends_at: dateAt(dayAfter, 13, 0),
     venue: 'Obelisco, CABA',
@@ -90,9 +95,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-007',
     title: 'San Lorenzo vs Independiente',
     category: 'sports',
+    size: 'large',
     lat: -34.6399,
     lng: -58.4396,
-    radius_meters: 700,
+    radius_meters: EVENT_SIZE_RADIUS.large,
     starts_at: dateAt(dayAfter, 15, 30),
     ends_at: dateAt(dayAfter, 17, 30),
     venue: 'Estadio Pedro Bidegain, Bajo Flores',
@@ -102,9 +108,10 @@ export const MOCK_EVENTS: AppEvent[] = [
     id: 'evt-008',
     title: 'Festival Buenos Aires Celebra Perú',
     category: 'festival',
+    size: 'small',
     lat: -34.6033,
     lng: -58.3817,
-    radius_meters: 300,
+    radius_meters: EVENT_SIZE_RADIUS.small,
     starts_at: dateAt(today, 11, 0),
     ends_at: dateAt(today, 22, 0),
     venue: 'Parque Lezama, San Telmo',
@@ -112,23 +119,14 @@ export const MOCK_EVENTS: AppEvent[] = [
   },
 ];
 
-export function getEventsNearLocation(
-  lat: number,
-  lng: number,
-  radiusMeters: number
-): AppEvent[] {
+export function getEventsNearLocation(lat: number, lng: number, radiusMeters: number): AppEvent[] {
   return MOCK_EVENTS.filter((event) => {
     const distance = getDistanceMeters(lat, lng, event.lat, event.lng);
     return distance <= radiusMeters + event.radius_meters;
   });
 }
 
-export function getDistanceMeters(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
+export function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
