@@ -1,39 +1,65 @@
+import * as React from 'react';
+import { View } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ToastProvider } from '@/components/ui/toast';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useThemeStore } from '@/store/useThemeStore';
 import '../global.css';
-import { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
+
+SplashScreen.preventAutoHideAsync();
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { user, isInitialized } = useAuthStore();
+  const router = useRouter();
+  const segments = useSegments();
+
+  React.useEffect(() => {
+    if (!isInitialized) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/(app)');
+    }
+  }, [user, isInitialized, segments, router]);
+
+  if (!isInitialized) {
+    return <View className="flex-1 bg-background" />;
+  }
+
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
-  const { setSession, loading } = useAuthStore();
+  const { initialize: initAuth } = useAuthStore();
+  const { initialize: initTheme } = useThemeStore();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        router.replace('/(app)');
-      } else {
-        router.replace('/(auth)/login');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (loading) return null;
+  React.useEffect(() => {
+    async function bootstrap() {
+      await initTheme();
+      await initAuth();
+      await SplashScreen.hideAsync();
+    }
+    bootstrap();
+  }, [initAuth, initTheme]);
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-      </Stack>
-    </>
+    <GestureHandlerRootView className="flex-1">
+      <SafeAreaProvider>
+        <ToastProvider>
+          <AuthGuard>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </AuthGuard>
+        </ToastProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

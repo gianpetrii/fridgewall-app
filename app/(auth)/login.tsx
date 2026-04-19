@@ -1,104 +1,138 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import { supabase } from '../../lib/supabase';
-import { Container } from '../../components/layout/Container';
-import { Logo } from '../../components/ui/Logo';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
+import * as React from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
+import { KeyboardView } from '@/components/layout/KeyboardView';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
+import { useAuthStore } from '@/store/useAuthStore';
+import type { LoginForm } from '@/types';
+
+const loginSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+});
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const router = useRouter();
+  const { login, isLoading } = useAuthStore();
+  const { toast } = useToast();
+  const [showPassword, setShowPassword] = React.useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) { setError('Completá todos los campos'); return; }
-    setLoading(true);
-    setError('');
-    setEmailNotConfirmed(false);
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    console.log('[login] data:', JSON.stringify(data?.user?.email_confirmed_at), 'error:', authError?.message);
-    setLoading(false);
-    if (authError) {
-      const msg = authError.message.toLowerCase();
-      if (msg.includes('email not confirmed')) {
-        setEmailNotConfirmed(true);
-        setError('Tu email todavía no fue confirmado. Revisá tu bandeja de entrada.');
-        return;
-      }
-      setError(
-        authError.message === 'Invalid login credentials'
-          ? 'Email o contraseña incorrectos'
-          : authError.message
-      );
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const onSubmit = async (data: LoginForm) => {
+    try {
+      await login(data.email, data.password);
+    } catch (err) {
+      toast({
+        message: 'Error al iniciar sesión',
+        description: err instanceof Error ? err.message : 'Verifica tus credenciales',
+        variant: 'error',
+      });
     }
-  }
-
-  async function handleResend() {
-    if (!email) { setError('Ingresá tu email para reenviar la confirmación'); return; }
-    const { error: resendError } = await supabase.auth.resend({ type: 'signup', email });
-    if (resendError) Alert.alert('Error', resendError.message);
-    else Alert.alert('Email reenviado', 'Revisá tu bandeja de entrada y hacé click en el link.');
-  }
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-50">
-      <Container>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-6" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeyboardView>
+      <View className="flex-1 justify-center px-6 py-12 bg-background">
+        <View className="mb-10">
+          <Text variant="h2" className="mb-2">
+            Bienvenido
+          </Text>
+          <Text variant="muted">Ingresá tu email y contraseña para continuar</Text>
+        </View>
 
-            <View className="items-center pt-14 pb-10 gap-4">
-              <Logo size="lg" />
-              <View className="items-center gap-1">
-                <Text className="text-2xl font-bold text-zinc-900 tracking-tight">HappeningNow</Text>
-                <Text className="text-sm text-zinc-500 text-center leading-5">
-                  Anticipate a los eventos que afectan tu movimiento
-                </Text>
-              </View>
-            </View>
+        <View className="gap-4">
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Email"
+                placeholder="tu@email.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                returnKeyType="next"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.email?.message}
+                leftIcon={<Mail size={18} color="#71717a" />}
+              />
+            )}
+          />
 
-            <View className="gap-4">
-              <Text className="text-xl font-bold text-zinc-900">Iniciar sesión</Text>
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Contraseña"
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit(onSubmit)}
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.password?.message}
+                leftIcon={<Lock size={18} color="#71717a" />}
+                rightIcon={
+                  <Pressable onPress={() => setShowPassword((v) => !v)}>
+                    {showPassword ? (
+                      <EyeOff size={18} color="#71717a" />
+                    ) : (
+                      <Eye size={18} color="#71717a" />
+                    )}
+                  </Pressable>
+                }
+              />
+            )}
+          />
 
-              <Input label="Email" value={email} onChangeText={setEmail}
-                placeholder="tu@email.com" keyboardType="email-address"
-                autoCapitalize="none" autoCorrect={false} />
+          <Pressable
+            className="self-end"
+            onPress={() => router.push('/(auth)/forgot-password')}
+          >
+            <Text variant="small" className="text-primary">
+              ¿Olvidaste tu contraseña?
+            </Text>
+          </Pressable>
+        </View>
 
-              <Input label="Contraseña" value={password} onChangeText={setPassword}
-                placeholder="••••••••" secureTextEntry />
+        <Button
+          className="mt-8"
+          size="lg"
+          loading={isLoading}
+          onPress={handleSubmit(onSubmit)}
+        >
+          Iniciar sesión
+        </Button>
 
-              {error ? (
-                <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 gap-2">
-                  <Text className="text-red-600 text-sm text-center">{error}</Text>
-                  {emailNotConfirmed && (
-                    <TouchableOpacity onPress={handleResend}>
-                      <Text className="text-indigo-600 text-sm text-center font-semibold">
-                        Reenviar email de confirmación
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : null}
-
-              <Button label="Entrar" onPress={handleLogin} loading={loading} />
-
-              <View className="flex-row justify-center py-4">
-                <Text className="text-zinc-500 text-base">¿No tenés cuenta? </Text>
-                <Link href="/(auth)/register" asChild>
-                  <TouchableOpacity>
-                    <Text className="text-indigo-600 font-semibold text-base">Registrate</Text>
-                  </TouchableOpacity>
-                </Link>
-              </View>
-            </View>
-
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Container>
-    </SafeAreaView>
+        <View className="flex-row justify-center items-center mt-6 gap-1">
+          <Text variant="muted">¿No tenés cuenta?</Text>
+          <Pressable onPress={() => router.push('/(auth)/register')}>
+            <Text variant="small" className="text-primary font-semibold">
+              Registrate
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </KeyboardView>
   );
 }

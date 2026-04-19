@@ -1,66 +1,43 @@
-import { Tabs, router } from 'expo-router';
-import { useEffect } from 'react';
-import { Text } from 'react-native';
-import { useAuthStore } from '../../store/useAuthStore';
-
-const ADMIN_UID = process.env.EXPO_PUBLIC_ADMIN_UID ?? '';
-
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.35 }}>{emoji}</Text>;
-}
+import { Tabs } from 'expo-router';
+import { Home, User } from 'lucide-react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/colors';
 
 export default function AppLayout() {
-  const { session, loading, user } = useAuthStore();
-  const isAdmin = !!ADMIN_UID && user?.id === ADMIN_UID;
-
-  useEffect(() => {
-    if (!loading && !session) router.replace('/(auth)/login');
-  }, [session, loading]);
-
-  if (!session) return null;
+  const { resolvedScheme } = useColorScheme() as { resolvedScheme: 'light' | 'dark' };
+  const colors = Colors[resolvedScheme ?? 'light'];
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-      tabBarStyle: {
-        backgroundColor: '#ffffff',
-        borderTopColor: '#e4e4e7',
-        borderTopWidth: 1,
-        height: 60,
-        paddingBottom: 6,
-      },
-      tabBarActiveTintColor: '#4f46e5',
-      tabBarInactiveTintColor: '#a1a1aa',
+        tabBarActiveTintColor: colors.tabIconActive,
+        tabBarInactiveTintColor: colors.tabIconInactive,
+        tabBarStyle: {
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.tabBarBorder,
+          borderTopWidth: 1,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 0.3,
+          fontSize: 12,
+          fontWeight: '500',
         },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{ title: 'Mapa', tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{ title: 'Eventos', tabBarIcon: ({ focused }) => <TabIcon emoji="⚡" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="places"
-        options={{ title: 'Ubicaciones', tabBarIcon: ({ focused }) => <TabIcon emoji="📍" focused={focused} /> }}
+        options={{
+          title: 'Inicio',
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'Perfil', tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} /> }}
-      />
-      <Tabs.Screen
-        name="admin"
         options={{
-          title: 'Admin',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
-          tabBarItemStyle: isAdmin ? {} : { display: 'none' },
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
     </Tabs>

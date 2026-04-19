@@ -2,47 +2,30 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'HappeningNow',
-  slug: 'happeningnow',
+  name: 'BaseExpoApp',
+  slug: 'base-expo-app',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'dark',
+  userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  scheme: 'happeningnow',
+  scheme: 'base-expo-app',
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#09090b',
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.happeningnow.app',
-    infoPlist: {
-      NSLocationAlwaysAndWhenInUseUsageDescription:
-        'HappeningNow necesita acceso a tu ubicación para alertarte sobre eventos cercanos.',
-      NSLocationWhenInUseUsageDescription:
-        'HappeningNow necesita acceso a tu ubicación para mostrar eventos cercanos.',
-      NSLocationAlwaysUsageDescription:
-        'HappeningNow necesita acceso a tu ubicación en segundo plano para alertarte sobre eventos mientras no usás la app.',
-    },
+    bundleIdentifier: 'com.baseexpoapp.app',
   },
   android: {
-    package: 'com.happeningnow.app',
+    package: 'com.baseexpoapp.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#0f172a',
+      backgroundColor: '#09090b',
     },
     edgeToEdgeEnabled: true,
-    predictiveBackGestureEnabled: false,
-    permissions: [
-      'android.permission.ACCESS_COARSE_LOCATION',
-      'android.permission.ACCESS_FINE_LOCATION',
-      'android.permission.ACCESS_BACKGROUND_LOCATION',
-      'android.permission.FOREGROUND_SERVICE',
-      'android.permission.RECEIVE_BOOT_COMPLETED',
-    ],
-    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
   },
   web: {
     bundler: 'metro',
@@ -51,26 +34,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
-    [
-      'expo-calendar',
-      {
-        calendarPermission: 'HappeningNow necesita acceso al calendario para guardar eventos.',
-      },
-    ],
-    [
-      'expo-location',
-      {
-        locationAlwaysAndWhenInUsePermission:
-          'HappeningNow necesita acceso a tu ubicación para alertarte sobre eventos cercanos.',
-        isIosBackgroundLocationEnabled: true,
-        isAndroidBackgroundLocationEnabled: true,
-      },
-    ],
+    'expo-font',
     [
       'expo-notifications',
       {
         icon: './assets/icon.png',
-        color: '#0f172a',
+        color: '#09090b',
+      },
+    ],
+    [
+      'expo-splash-screen',
+      {
+        backgroundColor: '#09090b',
+        image: './assets/splash-icon.png',
+        imageWidth: 200,
       },
     ],
   ],
@@ -78,7 +55,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true,
   },
   extra: {
+    // Supabase
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    // Firebase (uncomment if using Firebase)
+    // firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    // firebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    // firebaseProjectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+    // firebaseAppId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
   },
 });

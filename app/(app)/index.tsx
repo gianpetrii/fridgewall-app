@@ -1,82 +1,57 @@
-import React, { useState, useRef } from 'react';
-import { View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Region } from 'react-native-maps';
-import { useLocation } from '../../hooks/useLocation';
-import { useEvents } from '../../hooks/useEvents';
-import { useEventFilters } from '../../hooks/useEventFilters';
-import { EventMarker } from '../../components/map/EventMarker';
-import { EventDetailSheet } from '../../components/events/EventDetailSheet';
-import { FilterPanel } from '../../components/events/FilterPanel';
-import { AppEvent } from '../../types';
+import { View } from 'react-native';
+import { Screen } from '@/components/layout/Screen';
+import { Text } from '@/components/ui/text';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useAuthStore } from '@/store/useAuthStore';
 
-const BUENOS_AIRES: Region = {
-  latitude: -34.6083, longitude: -58.3712,
-  latitudeDelta: 0.15, longitudeDelta: 0.15,
-};
-
-export default function MapScreen() {
-  const mapRef = useRef<MapView>(null);
-  const { coords } = useLocation();
-  const { events } = useEvents();
-  const [selectedEvent, setSelectedEvent] = useState<AppEvent | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-
-  const {
-    search, setSearch,
-    categoryFilter, setCategoryFilter,
-    selectedDate, setSelectedDate,
-    dateOptions,
-    filteredEvents,
-    hasActiveFilters,
-    clearFilters,
-  } = useEventFilters(events);
+export default function HomeScreen() {
+  const { user } = useAuthStore();
 
   return (
-    <View className="flex-1">
-      <MapView
-        ref={mapRef}
-        style={{ flex: 1 }}
-        initialRegion={coords
-          ? { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 }
-          : BUENOS_AIRES
-        }
-        showsUserLocation
-        showsMyLocationButton={false}
-        compassOffset={{ x: -8, y: 110 }}
-        onMapReady={() => setMapReady(true)}
-        onPress={() => showFilters && setShowFilters(false)}
-      >
-        {mapReady && filteredEvents.map((event) => (
-          <EventMarker key={event.id} event={event} onPress={setSelectedEvent} />
-        ))}
-      </MapView>
-
-      {/* UI flotante */}
-      <SafeAreaView className="absolute inset-x-0 top-0" pointerEvents="box-none">
-        <View className="px-4 pt-2 gap-2" pointerEvents="box-none">
-          <FilterPanel
-            variant="floating"
-            search={search} onSearchChange={setSearch}
-            categoryFilter={categoryFilter} onCategoryChange={setCategoryFilter}
-            selectedDate={selectedDate} onDateChange={setSelectedDate}
-            dateOptions={dateOptions}
-            hasActiveFilters={hasActiveFilters} onClear={clearFilters}
-            showFilters={showFilters} onToggleFilters={() => setShowFilters(!showFilters)}
-          />
-
-          {hasActiveFilters && !showFilters && (
-            <View className="self-start bg-white/95 border border-zinc-200 rounded-xl px-3 py-1.5">
-              <Text className="text-xs font-semibold text-zinc-600">
-                {filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''}
-              </Text>
-            </View>
-          )}
+    <Screen>
+      <View className="gap-6">
+        <View className="pt-4">
+          <Text variant="h2">
+            {user?.name ? `Hola, ${user.name.split(' ')[0]}` : 'Inicio'}
+          </Text>
+          <Text variant="muted" className="mt-1">
+            Bienvenido a tu nueva app
+          </Text>
         </View>
-      </SafeAreaView>
 
-      <EventDetailSheet event={selectedEvent} onClose={() => setSelectedEvent(null)} />
-    </View>
+        <Card>
+          <CardHeader>
+            <View className="flex-row items-center justify-between">
+              <CardTitle>Base Expo App</CardTitle>
+              <Badge variant="secondary" label="v1.0" />
+            </View>
+            <CardDescription>
+              Boilerplate base con shadcn/ui RN, Expo Router y Supabase/Firebase.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <View className="gap-2">
+              {[
+                'shadcn/ui RN — 10 componentes base',
+                'Expo Router — navegación file-based',
+                'Auth completo — login, register, reset',
+                'Dark/light mode persistente',
+                'Forms con react-hook-form + zod',
+                'Zustand — estado global',
+                'Backend dual — Supabase / Firebase',
+              ].map((item) => (
+                <View key={item} className="flex-row items-center gap-2">
+                  <View className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <Text variant="small" className="text-muted-foreground flex-1">
+                    {item}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </CardContent>
+        </Card>
+      </View>
+    </Screen>
   );
 }
