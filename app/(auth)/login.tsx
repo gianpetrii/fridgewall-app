@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getFirebaseErrorMessage } from '@/lib/utils';
 import type { LoginForm } from '@/types';
 
 const loginSchema = z.object({
@@ -38,8 +39,7 @@ export default function LoginScreen() {
       await login(data.email, data.password);
     } catch (err) {
       toast({
-        message: 'Error al iniciar sesión',
-        description: err instanceof Error ? err.message : 'Verifica tus credenciales',
+        message: getFirebaseErrorMessage(err),
         variant: 'error',
       });
     }
@@ -49,8 +49,9 @@ export default function LoginScreen() {
     <KeyboardView>
       <View className="flex-1 justify-center px-6 py-12 bg-background">
         <View className="mb-10">
+          <Text className="text-4xl mb-1">🧲</Text>
           <Text variant="h2" className="mb-2">
-            Bienvenido
+            FridgeWall
           </Text>
           <Text variant="muted">Ingresá tu email y contraseña para continuar</Text>
         </View>

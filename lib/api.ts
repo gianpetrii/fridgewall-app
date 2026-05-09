@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/store/useAuthStore';
+import { auth } from '@/lib/firebase';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
@@ -21,7 +21,7 @@ class ApiError extends Error {
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers: extraHeaders = {} } = options;
 
-  const token = useAuthStore.getState().session?.access_token;
+  const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

@@ -5,14 +5,12 @@ export interface User {
   email: string;
   name?: string;
   avatarUrl?: string;
-  createdAt?: string;
+  pushToken?: string;
 }
 
 export interface Session {
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number;
-  user: User;
+  uid: string;
+  email: string | null;
 }
 
 export interface AuthState {
@@ -22,24 +20,44 @@ export interface AuthState {
   isInitialized: boolean;
 }
 
+// ─── FridgeWall ───────────────────────────────────────────────────────────────
+
+export interface Group {
+  id: string;
+  name: string;
+  createdBy: string;
+  inviteCode: string;
+  members: string[];
+  coverUrl?: string;
+  createdAt: number;
+}
+
+export interface Post {
+  id: string;
+  groupId: string;
+  userId: string;
+  userName?: string;
+  userAvatarUrl?: string;
+  photoUrl: string;
+  caption?: string;
+  createdAt: number;
+}
+
+export type ReactionType = 'heart' | 'laugh' | 'wow' | 'sad' | 'photo_reply';
+
+export interface Reaction {
+  id: string;
+  postId: string;
+  userId: string;
+  userName?: string;
+  type: ReactionType;
+  photoUrl?: string;
+  createdAt: number;
+}
+
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
 export type ColorScheme = 'light' | 'dark' | 'system';
-
-// ─── API ──────────────────────────────────────────────────────────────────────
-
-export interface ApiResponse<T> {
-  data: T | null;
-  error: string | null;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
 
 // ─── Forms ────────────────────────────────────────────────────────────────────
 

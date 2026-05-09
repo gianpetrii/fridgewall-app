@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getFirebaseErrorMessage } from '@/lib/utils';
 import type { ForgotPasswordForm } from '@/types';
 
 const forgotSchema = z.object({
@@ -38,8 +39,7 @@ export default function ForgotPasswordScreen() {
       setSent(true);
     } catch (err) {
       toast({
-        message: 'Error',
-        description: err instanceof Error ? err.message : 'Intentá de nuevo',
+        message: getFirebaseErrorMessage(err),
         variant: 'error',
       });
     }

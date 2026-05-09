@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getFirebaseErrorMessage } from '@/lib/utils';
 import type { RegisterForm } from '@/types';
 
 const registerSchema = z
@@ -43,11 +44,10 @@ export default function RegisterScreen() {
   const onSubmit = async (data: RegisterForm) => {
     try {
       await register(data.email, data.password, data.name);
-      router.replace('/(auth)/confirm-email');
+      router.replace('/(app)');
     } catch (err) {
       toast({
-        message: 'Error al registrarse',
-        description: err instanceof Error ? err.message : 'Intentá de nuevo',
+        message: getFirebaseErrorMessage(err),
         variant: 'error',
       });
     }
@@ -57,10 +57,11 @@ export default function RegisterScreen() {
     <KeyboardView>
       <View className="flex-1 justify-center px-6 py-12 bg-background">
         <View className="mb-10">
+          <Text className="text-4xl mb-1">🧲</Text>
           <Text variant="h2" className="mb-2">
             Crear cuenta
           </Text>
-          <Text variant="muted">Completá el formulario para registrarte</Text>
+          <Text variant="muted">Completá el formulario para empezar</Text>
         </View>
 
         <View className="gap-4">

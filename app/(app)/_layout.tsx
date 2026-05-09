@@ -1,5 +1,6 @@
+"use client";
 import { Tabs } from 'expo-router';
-import { Home, User } from 'lucide-react-native';
+import { Home, Users, User } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/colors';
 
@@ -31,6 +32,13 @@ export default function AppLayout() {
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: 'Círculos',
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}
       />
       <Tabs.Screen
