@@ -45,6 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-font',
     'expo-image-picker',
+    './plugins/withIOSWidget',
     [
       'react-native-android-widget',
       {
