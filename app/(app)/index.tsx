@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Camera, Heart, Laugh, Frown, Zap, Trash2, X } from 'lucide-react-native';
+import { saveWidgetData } from '@/widgets/updateWidget';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,18 @@ export default function FeedScreen() {
     const unsub = subscribeToGroup(activeGroupId);
     return unsub;
   }, [activeGroupId]);
+
+  // Actualizar el widget con la foto más reciente
+  React.useEffect(() => {
+    if (posts.length === 0 || !activeGroup) return;
+    const latest = posts[0];
+    saveWidgetData({
+      photoUrl: latest.photoUrl,
+      groupName: activeGroup.name,
+      posterName: latest.userName,
+      createdAt: latest.createdAt,
+    });
+  }, [posts, activeGroup]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

@@ -46,6 +46,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-image-picker',
     [
+      'react-native-android-widget',
+      {
+        widgets: [
+          {
+            name: 'FridgeWall',
+            label: 'FridgeWall',
+            minWidth: '250dp',
+            minHeight: '110dp',
+            description: 'Fotos de tu círculo en la pantalla de inicio',
+            updatePeriodMillis: 1800000,
+          },
+        ],
+      },
+    ],
+    [
       'expo-notifications',
       {
         icon: './assets/icon.png',
@@ -65,6 +80,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true,
   },
   extra: {
+    eas: {
+      projectId: '31fb7103-b833-4112-acf8-f9c173438bc0',
+    },
     firebaseApiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
     firebaseAuthDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
     firebaseProjectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
