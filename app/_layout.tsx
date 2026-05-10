@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ToastProvider } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
+import { useNotifications } from '@/hooks/useNotifications';
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -36,8 +37,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const { initialize: initAuth } = useAuthStore();
+  const { initialize: initAuth, user } = useAuthStore();
   const { initialize: initTheme } = useThemeStore();
+  const { requestPermissions } = useNotifications();
 
   React.useEffect(() => {
     async function bootstrap() {
@@ -47,6 +49,13 @@ export default function RootLayout() {
     }
     bootstrap();
   }, [initAuth, initTheme]);
+
+  // Pedir permisos y registrar token cuando el usuario inicia sesión
+  React.useEffect(() => {
+    if (user?.id) {
+      requestPermissions(user.id);
+    }
+  }, [user?.id]);
 
   return (
     <GestureHandlerRootView className="flex-1">

@@ -1,6 +1,8 @@
 import * as React from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { savePushToken } from '@/lib/notifications';
 import type { PushNotificationToken } from '@/types';
 
 Notifications.setNotificationHandler({
@@ -14,69 +16,54 @@ Notifications.setNotificationHandler({
 interface UseNotificationsReturn {
   expoPushToken: PushNotificationToken | null;
   permissionStatus: Notifications.PermissionStatus | null;
-  requestPermissions: () => Promise<boolean>;
-  scheduleLocalNotification: (
-    title: string,
-    body: string,
-    seconds?: number,
-  ) => Promise<string>;
+  requestPermissions: (userId: string) => Promise<boolean>;
 }
 
 export function useNotifications(): UseNotificationsReturn {
+  const router = useRouter();
   const [expoPushToken, setExpoPushToken] = React.useState<PushNotificationToken | null>(null);
   const [permissionStatus, setPermissionStatus] =
     React.useState<Notifications.PermissionStatus | null>(null);
 
+  // Manejar tap en notificación → navegar al feed
   React.useEffect(() => {
-    Notifications.getPermissionsAsync().then((status) => {
-      setPermissionStatus(status.status);
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as { groupId?: string };
+      if (data?.groupId) {
+        router.push('/(app)');
+      }
     });
-  }, []);
+    return () => sub.remove();
+  }, [router]);
 
-  const requestPermissions = React.useCallback(async (): Promise<boolean> => {
+  const requestPermissions = React.useCallback(async (userId: string): Promise<boolean> => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
-    if (existingStatus === 'granted') {
-      setPermissionStatus(existingStatus);
-      await registerForPushNotifications();
-      return true;
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
     }
 
-    const { status } = await Notifications.requestPermissionsAsync();
-    setPermissionStatus(status);
+    setPermissionStatus(finalStatus);
+    if (finalStatus !== 'granted') return false;
 
-    if (status !== 'granted') return false;
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: '31fb7103-b833-4112-acf8-f9c173438bc0',
+      });
+      const token: PushNotificationToken = {
+        token: tokenData.data,
+        platform: Platform.OS as 'ios' | 'android',
+      };
+      setExpoPushToken(token);
+      await savePushToken(userId, tokenData.data);
+    } catch {
+      // Solo funciona en dispositivo físico
+    }
 
-    await registerForPushNotifications();
     return true;
   }, []);
 
-  async function registerForPushNotifications() {
-    try {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      setExpoPushToken({
-        token: tokenData.data,
-        platform: Platform.OS as 'ios' | 'android',
-      });
-    } catch {
-      // Physical device required for push tokens in development
-    }
-  }
-
-  const scheduleLocalNotification = React.useCallback(
-    async (title: string, body: string, seconds = 1): Promise<string> => {
-      return Notifications.scheduleNotificationAsync({
-        content: { title, body },
-        trigger: { seconds },
-      });
-    },
-    [],
-  );
-
-  return {
-    expoPushToken,
-    permissionStatus,
-    requestPermissions,
-    scheduleLocalNotification,
-  };
+  return { expoPushToken, permissionStatus, requestPermissions };
 }
