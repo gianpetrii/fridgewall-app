@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, FlatList, Pressable, Modal, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { Camera, Heart, Laugh, Frown, Zap, Trash2, X } from 'lucide-react-native';
+import { Camera, Trash2, X } from 'lucide-react-native';
 import { saveWidgetData } from '@/widgets/updateWidget';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
@@ -19,6 +19,40 @@ const REACTIONS: { type: ReactionType; emoji: string }[] = [
   { type: 'wow', emoji: '😮' },
   { type: 'sad', emoji: '😢' },
 ];
+
+function GroupSelector() {
+  const { groups, activeGroupId, setActiveGroup } = useGroupsStore();
+  if (groups.length <= 1) return null;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className="mb-2"
+      contentContainerClassName="gap-2 px-1"
+    >
+      {groups.map((g) => {
+        const active = g.id === activeGroupId;
+        return (
+          <Pressable
+            key={g.id}
+            onPress={() => setActiveGroup(g.id)}
+            className={[
+              'px-4 py-1.5 rounded-full border',
+              active ? 'bg-primary border-primary' : 'bg-transparent border-border',
+            ].join(' ')}
+          >
+            <Text
+              variant="small"
+              className={active ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}
+            >
+              {g.name}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
 
 function timeAgo(ms: number): string {
   const diff = Date.now() - ms;
@@ -233,6 +267,9 @@ export default function FeedScreen() {
           )}
         </Pressable>
       </View>
+
+      {/* Selector de grupo */}
+      <GroupSelector />
 
       {/* Upload progress */}
       {isUploading && (
