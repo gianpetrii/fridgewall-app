@@ -1,12 +1,13 @@
 ---
 alwaysApply: true
 ---
+
 # Reglas del Proyecto
 
 ## Gestión de Dependencias
 
 **NUNCA instalar paquetes directamente**
-- ❌ No ejecutar `npm install`, `npm add`, `yarn add`, etc.
+- ❌ No ejecutar `npm install`, `npm add`, `yarn add`, `pnpm add`, etc.
 - ✅ Proporcionar el comando exacto para que el usuario lo ejecute
 - Ejemplo: "Necesitas instalar X. Ejecuta: `npm install nombre-paquete`"
 
@@ -20,12 +21,16 @@ alwaysApply: true
 
 ## Uso de Terminales
 
-**NUNCA usar terminales para desarrollo**
-- ❌ No ejecutar `npm run dev`, `npm run build`, `npm test`
-- ❌ No abrir nuevas terminales
-- ❌ No correr comandos en consola sin solicitud explícita
-- ✅ El usuario se encarga de ejecutar y probar el código
-- ✅ Solo proporcionar el código/configuración necesaria
+**El usuario ejecuta y valida el flujo de desarrollo; el agente investiga y entrega código.**
+
+**Permitido sin pedir:**
+- Comandos de lectura y diagnóstico: `git status`, `git diff`, `git log`, inspección de archivos, búsqueda en el código, etc.
+
+**Prohibido sin pedir explícito:**
+- ❌ `npm run dev`, `npm run build`, `npm test`, `npm run lint`
+- ❌ Instalación de paquetes
+- ❌ `git add`, `git commit`, `git push`
+- ❌ Servidores o procesos largos en background
 
 ## Estimación de Tareas
 
@@ -51,73 +56,20 @@ alwaysApply: true
 Sugerencia: [Mejora identificada] - ¿te gustaría implementarla?"
 ```
 
-## Prioridad #1: Experiencia de Usuario
+## Prioridad: Experiencia de Usuario
 
-**SIEMPRE priorizar UX en cada decisión**
+**Priorizar UX cuando la tarea involucre interfaz**
 - ✅ Flujos claros e intuitivos
-- ✅ Feedback visual inmediato (loaders, toasts, animaciones)
+- ✅ Feedback visual inmediato (loaders, toasts, estados de carga)
 - ✅ Estados vacíos informativos con CTAs claras
-- ✅ Responsive design en todo
-- ✅ Textos de botones descriptivos y claros
-- ✅ Navegación lógica y predecible
-- ✅ Animaciones suaves para transiciones
-- ⚠️ Antes de implementar, preguntar: "¿Esto mejora la experiencia del usuario?"
-
-## Arquitectura del Proyecto
-
-### Stack Técnico
-- **Framework**: Next.js 14 (App Router)
-- **Backend**: Firebase (Auth, Firestore, Storage)
-- **UI**: Tailwind CSS + shadcn/ui
-- **Producto Core**: Widget embebible con iframe
-
-### Estructura de Navegación
-- `/projects` - Lista de proyectos
-- `/projects/[id]` - Dashboard del proyecto (métricas, gráficos, onboarding)
-- `/projects/[id]/feedback` - Gestión detallada de feedback
-- `/projects/[id]/settings` - Configuración (2 pasos: Instalación → Apariencia)
-- `/projects/[id]/features` - Configuración de funcionalidades
-
-### Flujo de Onboarding
-1. Instala el widget (siempre marcado como completado)
-2. Personaliza la apariencia
-3. Configura funcionalidades
-4. Recibe feedback
-
-### Widget
-- Se carga vía `embed.js` desde `public/widget/`
-- Configuración dinámica desde Firebase vía API `/api/projects/[id]/settings`
-- NO se carga dentro de iframes (prevenir anidación)
-- Botón se oculta cuando modal está abierto
+- ✅ Diseño responsive cuando aplique
+- ✅ Textos de acciones descriptivos y claros
+- ⚠️ Antes de implementar UI, preguntar: "¿Esto mejora la experiencia del usuario?"
 
 ## Convenciones de Código
 
-### TypeScript
-- Siempre tipar props e interfaces
-- Usar tipos de `@/types` para consistencia
-
-### Estilos
-- Tailwind para todo
-- CSS inline solo para valores dinámicos (colores de usuario)
-- Responsive: mobile-first con breakpoints `sm:`, `lg:`
-
-### Firebase
-- Reglas públicas para lectura de `projects` (widget necesita settings)
-- Colección principal: `feedback` (no `feedbacks`)
-- Siempre verificar permisos antes de operaciones
-
-### Componentes
-- shadcn/ui para UI base
-- Componentes custom en `components/`
-- Client components cuando usan hooks (`"use client"`)
-
-## Estado y Persistencia
-
-- `localStorage` para:
-  - Pasos de onboarding completados
-  - Estado de colapso de secciones
-  - Configuraciones temporales de UI
-- Firebase para:
-  - Datos de proyectos y feedback
-  - Configuración de widgets
-  - Autenticación de usuarios
+- Respetar convenciones existentes del repositorio (nombres, carpetas, estilo del código actual)
+- No introducir dependencias ni patrones nuevos sin acordarlo con el usuario
+- Tipado estricto cuando el proyecto use TypeScript
+- Cambios acotados al alcance pedido; evitar refactors colaterales
+- ❌ No crear archivos de documentación `.md` (README, CHANGELOG, etc.) salvo pedido explícito
