@@ -172,13 +172,24 @@ struct FridgeWallWidgetView: View {
 
 // MARK: - Widget declaration
 
+extension View {
+    @ViewBuilder
+    func widgetBackground() -> some View {
+        if #available(iOS 17.0, *) {
+            self.containerBackground(.black, for: .widget)
+        } else {
+            self
+        }
+    }
+}
+
 struct FridgeWallWidget: Widget {
     let kind: String = "FridgeWallWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             FridgeWallWidgetView(entry: entry)
-                .containerBackground(.black, for: .widget)
+                .widgetBackground()
         }
         .configurationDisplayName("FridgeWall")
         .description("Fotos de tu wall en la pantalla de inicio")
