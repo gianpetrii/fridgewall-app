@@ -1,7 +1,6 @@
 import * as React from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { useRouter } from 'expo-router';
 import { savePushToken } from '@/lib/notifications';
 import type { PushNotificationToken } from '@/types';
 
@@ -20,21 +19,9 @@ interface UseNotificationsReturn {
 }
 
 export function useNotifications(): UseNotificationsReturn {
-  const router = useRouter();
   const [expoPushToken, setExpoPushToken] = React.useState<PushNotificationToken | null>(null);
   const [permissionStatus, setPermissionStatus] =
     React.useState<Notifications.PermissionStatus | null>(null);
-
-  // Manejar tap en notificación → navegar al feed
-  React.useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { groupId?: string };
-      if (data?.groupId) {
-        router.push('/(app)');
-      }
-    });
-    return () => sub.remove();
-  }, [router]);
 
   const requestPermissions = React.useCallback(async (userId: string): Promise<boolean> => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();

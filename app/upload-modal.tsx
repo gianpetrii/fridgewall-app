@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { X } from 'lucide-react-native';
 import { Pressable } from 'react-native';
 import { KeyboardView } from '@/components/layout/KeyboardView';
+import { ShellProviders } from '@/components/layout/ShellProviders';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
@@ -18,6 +19,14 @@ import { saveWidgetData } from '@/widgets/updateWidget';
 type Source = 'camera' | 'gallery';
 
 export default function UploadModal() {
+  return (
+    <ShellProviders>
+      <UploadModalContent />
+    </ShellProviders>
+  );
+}
+
+function UploadModalContent() {
   const router = useRouter();
   const { source } = useLocalSearchParams<{ source: Source }>();
   const { toast } = useToast();

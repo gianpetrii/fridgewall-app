@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Copy, Share2, Users, Hash, Trash2 } from 'lucide-react-native';
+import { Plus, Copy, Share2, Users, Hash, Trash2, LogOut } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { KeyboardSheet } from '@/components/layout/KeyboardSheet';
 import { Text } from '@/components/ui/text';
@@ -35,6 +35,7 @@ export default function GroupsScreen() {
     createGroup,
     joinGroup,
     removeGroup,
+    leaveGroup,
     activeGroupId,
     setActiveGroup,
   } = useGroupsStore();
@@ -118,6 +119,33 @@ export default function GroupsScreen() {
     );
   };
 
+  const handleLeaveGroup = (group: Group) => {
+    Alert.alert(
+      copy.leaveWall,
+      copy.leaveWallConfirm(group.name),
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              await leaveGroup(group.id, user.id);
+              toast({ message: `Saliste de "${group.name}"`, variant: 'success' });
+            } catch (err) {
+              toast({
+                message: 'No se pudo salir del wall',
+                description: err instanceof Error ? err.message : undefined,
+                variant: 'error',
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderGroup = ({ item }: { item: Group }) => {
     const isOwner = item.createdBy === user?.id;
     const isActive = item.id === activeGroupId;
@@ -162,6 +190,14 @@ export default function GroupsScreen() {
                     onPress={() => handleDeleteGroup(item)}
                   >
                     <Trash2 size={15} color="#ef4444" />
+                  </Pressable>
+                )}
+                {!isOwner && (
+                  <Pressable
+                    className="w-8 h-8 rounded-lg bg-muted items-center justify-center"
+                    onPress={() => handleLeaveGroup(item)}
+                  >
+                    <LogOut size={15} color="#71717a" />
                   </Pressable>
                 )}
               </View>

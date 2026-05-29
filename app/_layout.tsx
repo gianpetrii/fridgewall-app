@@ -1,12 +1,7 @@
 import * as React from 'react';
-import { View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { ToastProvider } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -35,10 +30,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, isInitialized, segments, router]);
 
-  if (!isInitialized) {
-    return <View className="flex-1 bg-background" />;
-  }
-
   return <>{children}</>;
 }
 
@@ -62,7 +53,6 @@ function DeepLinkHandler() {
     [user, isInitialized, router],
   );
 
-  // Resolver URL pendiente cuando el usuario inicia sesión
   React.useEffect(() => {
     if (isInitialized && user && pendingUrl.current) {
       const url = pendingUrl.current;
@@ -84,7 +74,7 @@ function DeepLinkHandler() {
 
 export default function RootLayout() {
   const { initialize: initAuth, user } = useAuthStore();
-  const { initialize: initTheme, resolvedScheme } = useThemeStore();
+  const { initialize: initTheme } = useThemeStore();
   const { requestPermissions } = useNotifications();
 
   React.useEffect(() => {
@@ -103,23 +93,15 @@ export default function RootLayout() {
   }, [user?.id]);
 
   return (
-    <GestureHandlerRootView
-      className={`flex-1 bg-background ${resolvedScheme === 'dark' ? 'dark' : ''}`}
-    >
-      <SafeAreaProvider>
-        <KeyboardProvider>
-          <ToastProvider>
-            <AuthGuard>
-              <DeepLinkHandler />
-              <Stack screenOptions={rootStackScreenOptions}>
-                <Stack.Screen name="(auth)" options={authStackScreenOptions} />
-                <Stack.Screen name="(app)" options={appStackScreenOptions} />
-                <Stack.Screen name="upload-modal" options={modalScreenOptions} />
-              </Stack>
-            </AuthGuard>
-          </ToastProvider>
-        </KeyboardProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <>
+      <AuthGuard>
+        <DeepLinkHandler />
+        <Stack screenOptions={rootStackScreenOptions}>
+          <Stack.Screen name="(auth)" options={authStackScreenOptions} />
+          <Stack.Screen name="(app)" options={appStackScreenOptions} />
+          <Stack.Screen name="upload-modal" options={modalScreenOptions} />
+        </Stack>
+      </AuthGuard>
+    </>
   );
 }

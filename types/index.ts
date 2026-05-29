@@ -41,6 +41,7 @@ export interface Post {
   photoUrl: string;
   caption?: string;
   createdAt: number;
+  expiresAt: number;
 }
 
 export type ReactionType = 'heart' | 'laugh' | 'wow' | 'sad' | 'photo_reply';

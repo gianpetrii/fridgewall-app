@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getFirebaseErrorMessage } from '@/lib/utils';
 import type { RegisterForm } from '@/types';
 
+
 const registerSchema = z
   .object({
     name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -46,10 +47,7 @@ export default function RegisterScreen() {
       await register(data.email, data.password, data.name);
       router.replace('/(app)');
     } catch (err) {
-      toast({
-        message: getFirebaseErrorMessage(err),
-        variant: 'error',
-      });
+      toast({ message: getFirebaseErrorMessage(err), variant: 'error' });
     }
   };
 
@@ -150,21 +148,14 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <Button
-          className="mt-8"
-          size="lg"
-          loading={isLoading}
-          onPress={handleSubmit(onSubmit)}
-        >
+        <Button className="mt-8" size="lg" loading={isLoading} onPress={handleSubmit(onSubmit)}>
           Crear cuenta
         </Button>
 
         <View className="flex-row justify-center items-center mt-6 gap-1">
           <Text variant="muted">¿Ya tenés cuenta?</Text>
           <Pressable onPress={() => router.back()}>
-            <Text variant="small" className="text-primary font-semibold">
-              Iniciá sesión
-            </Text>
+            <Text variant="small" className="text-primary font-semibold">Iniciá sesión</Text>
           </Pressable>
         </View>
       </View>

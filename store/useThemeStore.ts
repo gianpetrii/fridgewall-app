@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Appearance } from 'react-native';
+import { colorScheme } from 'nativewind';
 import { storage, STORAGE_KEYS } from '@/lib/storage';
 import type { ColorScheme } from '@/types';
 
@@ -18,6 +19,10 @@ function resolveScheme(scheme: ColorScheme): 'light' | 'dark' {
   return scheme;
 }
 
+function syncNativeWindScheme(scheme: ColorScheme, resolved: 'light' | 'dark') {
+  colorScheme.set(scheme === 'system' ? 'system' : resolved);
+}
+
 export const useThemeStore = create<ThemeStore>((set, get) => ({
   colorScheme: 'system',
   resolvedScheme: resolveScheme('system'),
@@ -26,14 +31,15 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
     const saved = await storage.get<ColorScheme>(STORAGE_KEYS.COLOR_SCHEME);
     const scheme = saved ?? 'system';
     const resolved = resolveScheme(scheme);
+    syncNativeWindScheme(scheme, resolved);
     set({ colorScheme: scheme, resolvedScheme: resolved });
-    // NativeWind usa la clase `dark` en el root; no forzar Appearance para evitar desync
-    Appearance.setColorScheme(null);
 
     Appearance.addChangeListener(() => {
-      const { colorScheme } = get();
-      if (colorScheme === 'system') {
-        set({ resolvedScheme: resolveScheme('system') });
+      const { colorScheme: currentScheme } = get();
+      if (currentScheme === 'system') {
+        const nextResolved = resolveScheme('system');
+        syncNativeWindScheme('system', nextResolved);
+        set({ resolvedScheme: nextResolved });
       }
     });
   },
@@ -41,8 +47,8 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
   setColorScheme: async (scheme) => {
     await storage.set(STORAGE_KEYS.COLOR_SCHEME, scheme);
     const resolved = resolveScheme(scheme);
+    syncNativeWindScheme(scheme, resolved);
     set({ colorScheme: scheme, resolvedScheme: resolved });
-    Appearance.setColorScheme(null);
   },
 
   toggle: async () => {

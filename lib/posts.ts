@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   orderBy,
+  where,
   serverTimestamp,
   Timestamp,
   type Unsubscribe,
@@ -15,7 +16,13 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { db, firebaseStorage } from '@/lib/firebase';
 import type { Post, Reaction, ReactionType } from '@/types';
 
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
 function toPost(id: string, data: Record<string, unknown>): Post {
+  const createdAt =
+    data.createdAt instanceof Timestamp
+      ? data.createdAt.toMillis()
+      : (data.createdAt as number) ?? Date.now();
   return {
     id,
     groupId: data.groupId as string,
@@ -24,10 +31,8 @@ function toPost(id: string, data: Record<string, unknown>): Post {
     userAvatarUrl: data.userAvatarUrl as string | undefined,
     photoUrl: data.photoUrl as string,
     caption: data.caption as string | undefined,
-    createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toMillis()
-        : (data.createdAt as number) ?? Date.now(),
+    createdAt,
+    expiresAt: (data.expiresAt as number) ?? createdAt + TTL_MS,
   };
 }
 
@@ -78,7 +83,9 @@ export async function createPost(
   photoUrl: string,
   caption?: string,
 ): Promise<Post> {
-  const ref = await addDoc(collection(db, 'groups', groupId, 'posts'), {
+  const now = Date.now();
+  const expiresAt = now + TTL_MS;
+  const docRef = await addDoc(collection(db, 'groups', groupId, 'posts'), {
     groupId,
     userId,
     userName: userName ?? null,
@@ -86,15 +93,17 @@ export async function createPost(
     photoUrl,
     caption: caption ?? null,
     createdAt: serverTimestamp(),
+    expiresAt,
   });
   return {
-    id: ref.id,
+    id: docRef.id,
     groupId,
     userId,
     userName,
     photoUrl,
     caption,
-    createdAt: Date.now(),
+    createdAt: now,
+    expiresAt,
   };
 }
 
@@ -114,7 +123,8 @@ export function subscribeToGroupPosts(
 ): Unsubscribe {
   const q = query(
     collection(db, 'groups', groupId, 'posts'),
-    orderBy('createdAt', 'desc'),
+    where('expiresAt', '>', Date.now()),
+    orderBy('expiresAt', 'desc'),
   );
   return onSnapshot(q, (snap) => {
     const posts = snap.docs.map((d) => toPost(d.id, d.data() as Record<string, unknown>));

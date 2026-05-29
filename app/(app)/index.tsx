@@ -2,7 +2,7 @@ import * as React from 'react';
 import { View, FlatList, Pressable, ActivityIndicator, Share, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Users, Copy, Share2, Hash, ChevronRight, Trash2 } from 'lucide-react-native';
+import { Users, Copy, Share2, Hash, ChevronRight, Trash2, LogOut } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,7 @@ function GroupCard({
   onCopyCode,
   onShareCode,
   onDelete,
+  onLeave,
   isOwner,
 }: {
   group: Group;
@@ -47,6 +48,7 @@ function GroupCard({
   onCopyCode: (code: string) => void;
   onShareCode: (name: string, code: string) => void;
   onDelete?: () => void;
+  onLeave?: () => void;
   isOwner?: boolean;
 }) {
   const orderedMembers = React.useMemo(() => {
@@ -98,6 +100,14 @@ function GroupCard({
               <Trash2 size={15} color="#ef4444" />
             </Pressable>
           )}
+          {!isOwner && onLeave && (
+            <Pressable
+              className="w-9 h-9 rounded-lg bg-muted items-center justify-center"
+              onPress={onLeave}
+            >
+              <LogOut size={15} color="#71717a" />
+            </Pressable>
+          )}
         </View>
 
         <View className="border-t border-border pt-1">
@@ -119,7 +129,7 @@ function GroupCard({
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { groups, isLoading: groupsLoading, fetchGroups, removeGroup } = useGroupsStore();
+  const { groups, isLoading: groupsLoading, fetchGroups, removeGroup, leaveGroup } = useGroupsStore();
   const { toast } = useToast();
   const [membersByGroup, setMembersByGroup] = React.useState<Record<string, User[]>>({});
   const [membersLoading, setMembersLoading] = React.useState(false);
@@ -195,6 +205,33 @@ export default function HomeScreen() {
     );
   };
 
+  const handleLeaveGroup = (group: Group) => {
+    Alert.alert(
+      copy.leaveWall,
+      copy.leaveWallConfirm(group.name),
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              await leaveGroup(group.id, user.id);
+              toast({ message: `Saliste de "${group.name}"`, variant: 'success' });
+            } catch (err) {
+              toast({
+                message: 'No se pudo salir del wall',
+                description: err instanceof Error ? err.message : undefined,
+                variant: 'error',
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (!groupsLoading && groups.length === 0) {
     return (
       <Screen>
@@ -248,6 +285,7 @@ export default function HomeScreen() {
                 onShareCode={shareCode}
                 isOwner={item.createdBy === user?.id}
                 onDelete={() => handleDeleteGroup(item)}
+                onLeave={() => handleLeaveGroup(item)}
               />
             )}
             contentContainerClassName="gap-3 pb-8"

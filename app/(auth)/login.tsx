@@ -38,10 +38,7 @@ export default function LoginScreen() {
     try {
       await login(data.email, data.password);
     } catch (err) {
-      toast({
-        message: getFirebaseErrorMessage(err),
-        variant: 'error',
-      });
+      toast({ message: getFirebaseErrorMessage(err), variant: 'error' });
     }
   };
 
@@ -50,9 +47,7 @@ export default function LoginScreen() {
       <View className="flex-1 justify-center px-6 py-12 bg-background">
         <View className="mb-10">
           <Text className="text-4xl mb-1">🧲</Text>
-          <Text variant="h2" className="mb-2">
-            FridgeWall
-          </Text>
+          <Text variant="h2" className="mb-2">FridgeWall</Text>
           <Text variant="muted">Ingresá tu email y contraseña para continuar</Text>
         </View>
 
@@ -95,42 +90,26 @@ export default function LoginScreen() {
                 leftIcon={<Lock size={18} color="#71717a" />}
                 rightIcon={
                   <Pressable onPress={() => setShowPassword((v) => !v)}>
-                    {showPassword ? (
-                      <EyeOff size={18} color="#71717a" />
-                    ) : (
-                      <Eye size={18} color="#71717a" />
-                    )}
+                    {showPassword ? <EyeOff size={18} color="#71717a" /> : <Eye size={18} color="#71717a" />}
                   </Pressable>
                 }
               />
             )}
           />
 
-          <Pressable
-            className="self-end"
-            onPress={() => router.push('/(auth)/forgot-password')}
-          >
-            <Text variant="small" className="text-primary">
-              ¿Olvidaste tu contraseña?
-            </Text>
+          <Pressable className="self-end" onPress={() => router.push('/(auth)/forgot-password')}>
+            <Text variant="small" className="text-primary">¿Olvidaste tu contraseña?</Text>
           </Pressable>
         </View>
 
-        <Button
-          className="mt-8"
-          size="lg"
-          loading={isLoading}
-          onPress={handleSubmit(onSubmit)}
-        >
+        <Button className="mt-8" size="lg" loading={isLoading} onPress={handleSubmit(onSubmit)}>
           Iniciar sesión
         </Button>
 
         <View className="flex-row justify-center items-center mt-6 gap-1">
           <Text variant="muted">¿No tenés cuenta?</Text>
           <Pressable onPress={() => router.push('/(auth)/register')}>
-            <Text variant="small" className="text-primary font-semibold">
-              Registrate
-            </Text>
+            <Text variant="small" className="text-primary font-semibold">Registrate</Text>
           </Pressable>
         </View>
       </View>

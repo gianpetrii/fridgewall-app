@@ -43,3 +43,7 @@ yarn-error.*
 /android
 *.swp
 *.swo
+
+# Firebase credentials (no subir)
+GoogleService-Info.plist
+google-services.json

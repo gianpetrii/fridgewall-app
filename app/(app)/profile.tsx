@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useToast } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -25,8 +26,9 @@ const themeOptions: { value: ColorScheme; label: string; icon: React.ElementType
 
 export default function ProfileScreen() {
   const { user, logout, deleteAccount, setUser, isLoading } = useAuthStore();
-  const { preference: colorScheme, setColorScheme } = useThemeStore();
+  const { colorScheme, setColorScheme } = useThemeStore();
   const { isDark } = useColorScheme();
+  const { toast } = useToast();
   const [deletingAccount, setDeletingAccount] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deletePassword, setDeletePassword] = React.useState('');
@@ -76,6 +78,13 @@ export default function ProfileScreen() {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const handleSelectTheme = async (value: ColorScheme) => {
+    await setColorScheme(value);
+    const label = themeOptions.find((t) => t.value === value)?.label ?? value;
+    toast({ message: `Apariencia: ${label}`, variant: 'success' });
+    setThemeDialogOpen(false);
   };
 
   const iconColor = isDark ? '#fafafa' : '#18181b';
@@ -174,6 +183,7 @@ export default function ProfileScreen() {
               icon={Sun}
               label="Apariencia"
               value={themeOptions.find((t) => t.value === colorScheme)?.label}
+              valueClassName="font-medium text-foreground"
               onPress={() => setThemeDialogOpen(true)}
             />
           </CardContent>
@@ -262,21 +272,24 @@ export default function ProfileScreen() {
                 <Pressable
                   key={value}
                   className={cn(
-                    'w-full flex-row items-center gap-3 rounded-xl px-4 py-3',
-                    selected ? 'bg-accent' : 'bg-transparent',
+                    'w-full flex-row items-center gap-3 rounded-xl px-4 py-3 border',
+                    selected
+                      ? 'bg-accent border-primary'
+                      : 'bg-transparent border-transparent',
                   )}
-                  onPress={() => {
-                    void setColorScheme(value);
-                    setThemeDialogOpen(false);
-                  }}
+                  onPress={() => void handleSelectTheme(value)}
                 >
                   <Icon size={20} color={selected ? iconColor : mutedIconColor} />
                   <Text
                     variant="p"
-                    className={cn('flex-1', selected ? 'font-semibold text-foreground' : 'text-muted-foreground')}
+                    className={cn(
+                      'flex-1',
+                      selected ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                    )}
                   >
                     {label}
                   </Text>
+                  {selected && <Check size={18} color={iconColor} />}
                 </Pressable>
               );
             })}
@@ -291,18 +304,20 @@ function SettingRow({
   icon: Icon,
   label,
   value,
+  valueClassName,
   onPress,
 }: {
   icon: React.ElementType;
   label: string;
   value?: string;
+  valueClassName?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable className="flex-row items-center gap-3 py-3 active:opacity-70" onPress={onPress}>
       <Icon size={20} color="#71717a" />
       <Text variant="p" className="flex-1">{label}</Text>
-      {value && <Text variant="muted">{value}</Text>}
+      {value && <Text variant="muted" className={valueClassName}>{value}</Text>}
     </Pressable>
   );
 }

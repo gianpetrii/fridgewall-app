@@ -7,6 +7,7 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
+  arrayRemove,
   query,
   where,
   serverTimestamp,
@@ -99,4 +100,17 @@ export async function deleteGroup(groupId: string, userId: string): Promise<void
   }
 
   await deleteDoc(doc(db, 'groups', groupId));
+}
+
+export async function leaveGroup(groupId: string, userId: string): Promise<void> {
+  const group = await getGroup(groupId);
+  if (!group) throw new Error('El wall no existe.');
+  if (group.createdBy === userId) {
+    throw new Error('Quien creó el wall debe eliminarlo, no puede salir.');
+  }
+  if (!group.members.includes(userId)) {
+    throw new Error('No formás parte de este wall.');
+  }
+
+  await updateDoc(doc(db, 'groups', groupId), { members: arrayRemove(userId) });
 }
