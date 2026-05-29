@@ -19,9 +19,14 @@ export async function saveWidgetData(data: StoredWidgetData): Promise<void> {
     } else if (Platform.OS === 'ios') {
       // iOS: nuestro native module escribe en AppGroup UserDefaults
       // y fuerza un reload de WidgetKit
+      // #region agent log
+      console.log('[WIDGET-DEBUG] saveWidgetData iOS branch, photoUrl:', data.photoUrl?.substring(0, 80));
+      // #endregion
       saveWidgetDataNative(data);
     }
-  } catch {
-    // No interrumpir el flujo principal si el widget falla
+  } catch (e) {
+    // #region agent log
+    console.log('[WIDGET-DEBUG] saveWidgetData ERROR:', e);
+    // #endregion
   }
 }
