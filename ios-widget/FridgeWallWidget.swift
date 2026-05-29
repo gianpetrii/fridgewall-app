@@ -1,7 +1,7 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Data model (shared con la app via AppGroup UserDefaults)
+// MARK: - Data model
 
 struct WidgetData: Codable {
     var photoUrl: String?
@@ -28,7 +28,6 @@ struct Provider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<FridgeWallEntry>) -> Void) {
         let entry = FridgeWallEntry(date: Date(), data: loadData())
-        // Se refresca a los 15 minutos, pero el push notification fuerza un reload antes
         let next = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
@@ -50,10 +49,14 @@ struct FridgeWallWidgetView: View {
     var entry: Provider.Entry
     @Environment(\.widgetFamily) var family
 
+    var cameraURL: URL { URL(string: "fridgewall://camera")! }
+    var galleryURL: URL { URL(string: "fridgewall://gallery")! }
+
     var body: some View {
-        if let urlString = entry.data.photoUrl, let url = URL(string: urlString) {
-            GeometryReader { geo in
-                ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottom) {
+            // Foto de fondo
+            if let urlString = entry.data.photoUrl, let url = URL(string: urlString) {
+                GeometryReader { geo in
                     AsyncImage(url: url) { phase in
                         if let image = phase.image {
                             image.resizable().aspectRatio(contentMode: .fill)
@@ -63,14 +66,36 @@ struct FridgeWallWidgetView: View {
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
+                }
+            } else {
+                Color(.systemBackground)
+                VStack(spacing: 6) {
+                    Text("🧲").font(.system(size: 36))
+                    Text("FridgeWall")
+                        .font(.system(size: 15, weight: .medium))
+                    Text("Tocá para agregar una foto")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
 
-                    // Degradado sobre la imagen para leer el texto
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.8)],
-                        startPoint: .center,
-                        endPoint: .bottom
-                    )
+            // Degradado inferior
+            if entry.data.photoUrl != nil {
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.75)],
+                    startPoint: .center,
+                    endPoint: .bottom
+                )
+            }
 
+            // Info + botones
+            VStack(spacing: 0) {
+                Spacer()
+
+                // Info de la foto
+                if entry.data.photoUrl != nil {
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.data.groupName ?? "FridgeWall")
@@ -90,22 +115,47 @@ struct FridgeWallWidgetView: View {
                         }
                     }
                     .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                }
+
+                // Botones de acción (solo en tamaño mediano y grande)
+                if family != .systemSmall {
+                    HStack(spacing: 8) {
+                        Link(destination: cameraURL) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 12))
+                                Text("Cámara")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                            .foregroundColor(entry.data.photoUrl != nil ? .white : .primary)
+                        }
+
+                        Link(destination: galleryURL) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "photo.fill")
+                                    .font(.system(size: 12))
+                                Text("Galería")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                            .foregroundColor(entry.data.photoUrl != nil ? .white : .primary)
+                        }
+                    }
+                    .padding(.horizontal, 12)
                     .padding(.bottom, 12)
                 }
             }
-        } else {
-            ZStack {
-                Color(.systemBackground)
-                VStack(spacing: 6) {
-                    Text("🧲").font(.system(size: 36))
-                    Text("FridgeWall")
-                        .font(.system(size: 15, weight: .medium))
-                    Text("Abrí la app para empezar")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-            }
         }
+        // En tamaño small, toda la vista es un link a la galería
+        .widgetURL(family == .systemSmall ? galleryURL : nil)
     }
 
     private func timeAgo(_ date: Date) -> String {
@@ -131,7 +181,7 @@ struct FridgeWallWidget: Widget {
                 .containerBackground(.black, for: .widget)
         }
         .configurationDisplayName("FridgeWall")
-        .description("Fotos de tu círculo en la pantalla de inicio")
+        .description("Fotos de tu wall en la pantalla de inicio")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

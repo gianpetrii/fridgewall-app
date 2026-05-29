@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createGroup, joinGroupByCode, getUserGroups } from '@/lib/groups';
+import { createGroup, joinGroupByCode, getUserGroups, deleteGroup } from '@/lib/groups';
 import type { Group } from '@/types';
 
 interface GroupsStore {
@@ -10,6 +10,7 @@ interface GroupsStore {
   createGroup: (name: string, userId: string) => Promise<Group>;
   joinGroup: (code: string, userId: string) => Promise<Group>;
   setActiveGroup: (groupId: string) => void;
+  removeGroup: (groupId: string, userId: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -65,6 +66,21 @@ export const useGroupsStore = create<GroupsStore>((set, get) => ({
   },
 
   setActiveGroup: (groupId) => set({ activeGroupId: groupId }),
+
+  removeGroup: async (groupId, userId) => {
+    set({ isLoading: true });
+    try {
+      await deleteGroup(groupId, userId);
+      set((state) => {
+        const groups = state.groups.filter((g) => g.id !== groupId);
+        const activeGroupId =
+          state.activeGroupId === groupId ? groups[0]?.id ?? null : state.activeGroupId;
+        return { groups, activeGroupId };
+      });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
 
   reset: () => set({ groups: [], activeGroupId: null, isLoading: false }),
 }));

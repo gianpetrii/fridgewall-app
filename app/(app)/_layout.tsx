@@ -40,7 +40,7 @@ export default function AppLayout() {
       <Tabs.Screen
         name="groups"
         options={{
-          title: 'Círculos',
+          title: 'Walls',
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}
       />

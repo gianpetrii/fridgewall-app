@@ -1,11 +1,12 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, Modal, Share } from 'react-native';
+import { View, FlatList, Pressable, Share, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Copy, Share2, Users, Hash } from 'lucide-react-native';
+import { Plus, Copy, Share2, Users, Hash, Trash2 } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
+import { KeyboardSheet } from '@/components/layout/KeyboardSheet';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
+import { copy } from '@/constants/copy';
 import type { Group } from '@/types';
 
 const createSchema = z.object({
@@ -26,8 +28,16 @@ type ModalMode = 'create' | 'join' | null;
 
 export default function GroupsScreen() {
   const { user } = useAuthStore();
-  const { groups, isLoading, fetchGroups, createGroup, joinGroup, activeGroupId, setActiveGroup } =
-    useGroupsStore();
+  const {
+    groups,
+    isLoading,
+    fetchGroups,
+    createGroup,
+    joinGroup,
+    removeGroup,
+    activeGroupId,
+    setActiveGroup,
+  } = useGroupsStore();
   const { toast } = useToast();
   const [modal, setModal] = React.useState<ModalMode>(null);
 
@@ -47,7 +57,7 @@ export default function GroupsScreen() {
       toast({ message: `"${group.name}" creado`, variant: 'success' });
     } catch (err) {
       toast({
-        message: 'Error al crear el círculo',
+        message: 'Error al crear el wall',
         description: err instanceof Error ? err.message : undefined,
         variant: 'error',
       });
@@ -77,11 +87,39 @@ export default function GroupsScreen() {
 
   const shareCode = async (name: string, code: string) => {
     await Share.share({
-      message: `Unite a mi círculo "${name}" en FridgeWall con el código: ${code}`,
+      message: copy.shareInvite(name, code),
     });
   };
 
+  const handleDeleteGroup = (group: Group) => {
+    Alert.alert(
+      copy.deleteWall,
+      copy.deleteWallConfirm(group.name),
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              await removeGroup(group.id, user.id);
+              toast({ message: `"${group.name}" eliminado`, variant: 'success' });
+            } catch (err) {
+              toast({
+                message: 'No se pudo eliminar',
+                description: err instanceof Error ? err.message : undefined,
+                variant: 'error',
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderGroup = ({ item }: { item: Group }) => {
+    const isOwner = item.createdBy === user?.id;
     const isActive = item.id === activeGroupId;
     return (
       <Pressable onPress={() => setActiveGroup(item.id)}>
@@ -118,6 +156,14 @@ export default function GroupsScreen() {
                 >
                   <Share2 size={15} color="#71717a" />
                 </Pressable>
+                {isOwner && (
+                  <Pressable
+                    className="w-8 h-8 rounded-lg bg-destructive/10 items-center justify-center"
+                    onPress={() => handleDeleteGroup(item)}
+                  >
+                    <Trash2 size={15} color="#ef4444" />
+                  </Pressable>
+                )}
               </View>
             </View>
           </CardContent>
@@ -127,10 +173,10 @@ export default function GroupsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scrollable={false}>
       <View className="flex-1 gap-4">
         <View className="flex-row items-center justify-between pt-4">
-          <Text variant="h2">Círculos</Text>
+          <Text variant="h2">{copy.tabWalls}</Text>
           <View className="flex-row gap-2">
             <Button size="sm" variant="outline" onPress={() => setModal('join')}>
               <Hash size={14} />
@@ -146,12 +192,12 @@ export default function GroupsScreen() {
         {groups.length === 0 && !isLoading ? (
           <View className="flex-1 items-center justify-center gap-3 pb-20">
             <Text className="text-5xl">👥</Text>
-            <Text variant="h4" className="text-center">Todavía no tenés círculos</Text>
+            <Text variant="h4" className="text-center">{copy.noWallsYet}</Text>
             <Text variant="muted" className="text-center px-8">
-              Creá un círculo o unite a uno con el código de alguien
+              Creá un wall o unite a uno con el código de alguien
             </Text>
             <View className="gap-2 w-full px-6 mt-2">
-              <Button size="lg" onPress={() => setModal('create')}>Crear círculo</Button>
+              <Button size="lg" onPress={() => setModal('create')}>{copy.createWall}</Button>
               <Button size="lg" variant="outline" onPress={() => setModal('join')}>
                 Unirme con código
               </Button>
@@ -168,25 +214,19 @@ export default function GroupsScreen() {
         )}
       </View>
 
-      {/* Modal crear / unirse */}
-      <Modal visible={modal !== null} transparent animationType="slide">
-        <Pressable
-          className="flex-1 bg-black/50 justify-end"
-          onPress={() => setModal(null)}
-        >
-          <Pressable className="bg-background rounded-t-3xl px-6 pt-6 pb-10">
-            {modal === 'create' ? (
+      <KeyboardSheet visible={modal !== null} onClose={() => setModal(null)}>
+        {modal === 'create' ? (
               <View className="gap-4">
-                <Text variant="h3">Crear círculo</Text>
+                <Text variant="h3">{copy.createWall}</Text>
                 <Text variant="muted">
-                  Poné un nombre para tu grupo, como "Familia" o "Amigos del cole".
+                  Poné un nombre para tu wall, como "Familia" o "Amigos del cole".
                 </Text>
                 <Controller
                   control={createForm.control}
                   name="name"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <Input
-                      label="Nombre del círculo"
+                      label={copy.wallNameLabel}
                       placeholder="Ej: Familia, Amigos..."
                       autoFocus
                       autoCapitalize="words"
@@ -204,12 +244,12 @@ export default function GroupsScreen() {
                   loading={isLoading}
                   onPress={createForm.handleSubmit(handleCreate)}
                 >
-                  Crear círculo
+                  {copy.createWall}
                 </Button>
               </View>
-            ) : (
+        ) : (
               <View className="gap-4">
-                <Text variant="h3">Unirme a un círculo</Text>
+                <Text variant="h3">{copy.joinWall}</Text>
                 <Text variant="muted">
                   Pedile a alguien que comparta su código de 6 caracteres.
                 </Text>
@@ -240,10 +280,8 @@ export default function GroupsScreen() {
                   Unirme
                 </Button>
               </View>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+        )}
+      </KeyboardSheet>
     </Screen>
   );
 }

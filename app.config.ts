@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: 'com.fridgewall.app',
     infoPlist: {
-      NSPhotoLibraryUsageDescription: 'FridgeWall necesita acceso a tu galería para compartir fotos con tu círculo.',
+      NSPhotoLibraryUsageDescription: 'FridgeWall necesita acceso a tu galería para compartir fotos en tu wall.',
       NSCameraUsageDescription: 'FridgeWall necesita acceso a tu cámara para tomar fotos.',
     },
   },
@@ -45,7 +45,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-font',
     'expo-image-picker',
-    './plugins/withIOSWidget',
+    // Google Sign-In desactivado por ahora — reactivar cuando quieras probarlo:
+    // ['@react-native-google-signin/google-signin', {
+    //   iosUrlScheme: 'com.googleusercontent.apps.88096637600-hrf94mmu0hakrqj92anip6fcoihae7e7',
+    // }],
+    './plugins/withIOSWidget.js',
+    './plugins/withoutPushNotifications.js',
     [
       'react-native-android-widget',
       {
@@ -55,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             label: 'FridgeWall',
             minWidth: '250dp',
             minHeight: '110dp',
-            description: 'Fotos de tu círculo en la pantalla de inicio',
+            description: 'Fotos de tu wall en la pantalla de inicio',
             updatePeriodMillis: 1800000,
           },
         ],

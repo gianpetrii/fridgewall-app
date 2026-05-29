@@ -42,19 +42,28 @@ service cloud.firestore {
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
 
+      function isGroupCreator() {
+        return request.auth.uid
+          == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy;
+      }
+
       match /posts/{postId} {
         allow read: if request.auth != null
           && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
         allow create: if request.auth != null
           && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
-        allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+        allow delete: if request.auth != null && (
+          request.auth.uid == resource.data.userId || isGroupCreator()
+        );
 
         match /reactions/{reactionId} {
           allow read: if request.auth != null
             && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
           allow create: if request.auth != null
             && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
-          allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+          allow delete: if request.auth != null && (
+            request.auth.uid == resource.data.userId || isGroupCreator()
+          );
         }
       }
     }

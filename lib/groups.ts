@@ -5,11 +5,13 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   query,
   where,
   serverTimestamp,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Group } from '@/types';
@@ -76,4 +78,25 @@ export async function getGroup(groupId: string): Promise<Group | null> {
   const snap = await getDoc(doc(db, 'groups', groupId));
   if (!snap.exists()) return null;
   return toGroup(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function deleteGroup(groupId: string, userId: string): Promise<void> {
+  const group = await getGroup(groupId);
+  if (!group) throw new Error('El wall no existe.');
+  if (group.createdBy !== userId) {
+    throw new Error('Solo quien creó el wall puede eliminarlo.');
+  }
+
+  const postsSnap = await getDocs(collection(db, 'groups', groupId, 'posts'));
+  for (const postDoc of postsSnap.docs) {
+    const reactionsSnap = await getDocs(
+      collection(db, 'groups', groupId, 'posts', postDoc.id, 'reactions'),
+    );
+    const batch = writeBatch(db);
+    reactionsSnap.docs.forEach((reactionDoc) => batch.delete(reactionDoc.ref));
+    batch.delete(postDoc.ref);
+    await batch.commit();
+  }
+
+  await deleteDoc(doc(db, 'groups', groupId));
 }

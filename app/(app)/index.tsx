@@ -1,8 +1,8 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, Share } from 'react-native';
+import { View, FlatList, Pressable, ActivityIndicator, Share, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Users, Copy, Share2, Hash, ChevronRight } from 'lucide-react-native';
+import { Users, Copy, Share2, Hash, ChevronRight, Trash2 } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { getUsersByIds } from '@/lib/users';
+import { copy } from '@/constants/copy';
 import type { Group, User } from '@/types';
 
 function MemberRow({ member, isYou }: { member: User; isYou: boolean }) {
@@ -37,12 +38,16 @@ function GroupCard({
   currentUserId,
   onCopyCode,
   onShareCode,
+  onDelete,
+  isOwner,
 }: {
   group: Group;
   members: User[];
   currentUserId: string;
   onCopyCode: (code: string) => void;
   onShareCode: (name: string, code: string) => void;
+  onDelete?: () => void;
+  isOwner?: boolean;
 }) {
   const orderedMembers = React.useMemo(() => {
     const you = members.find((m) => m.id === currentUserId);
@@ -85,6 +90,14 @@ function GroupCard({
           >
             <Share2 size={15} color="#71717a" />
           </Pressable>
+          {isOwner && onDelete && (
+            <Pressable
+              className="w-9 h-9 rounded-lg bg-destructive/10 items-center justify-center"
+              onPress={onDelete}
+            >
+              <Trash2 size={15} color="#ef4444" />
+            </Pressable>
+          )}
         </View>
 
         <View className="border-t border-border pt-1">
@@ -106,7 +119,7 @@ function GroupCard({
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { groups, isLoading: groupsLoading, fetchGroups } = useGroupsStore();
+  const { groups, isLoading: groupsLoading, fetchGroups, removeGroup } = useGroupsStore();
   const { toast } = useToast();
   const [membersByGroup, setMembersByGroup] = React.useState<Record<string, User[]>>({});
   const [membersLoading, setMembersLoading] = React.useState(false);
@@ -151,8 +164,35 @@ export default function HomeScreen() {
 
   const shareCode = async (name: string, code: string) => {
     await Share.share({
-      message: `Unite a mi círculo "${name}" en FridgeWall con el código: ${code}`,
+      message: copy.shareInvite(name, code),
     });
+  };
+
+  const handleDeleteGroup = (group: Group) => {
+    Alert.alert(
+      copy.deleteWall,
+      copy.deleteWallConfirm(group.name),
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              await removeGroup(group.id, user.id);
+              toast({ message: `"${group.name}" eliminado`, variant: 'success' });
+            } catch (err) {
+              toast({
+                message: 'No se pudo eliminar',
+                description: err instanceof Error ? err.message : undefined,
+                variant: 'error',
+              });
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (!groupsLoading && groups.length === 0) {
@@ -160,13 +200,13 @@ export default function HomeScreen() {
       <Screen>
         <View className="flex-1 items-center justify-center gap-3 pb-20">
           <Text className="text-5xl">👥</Text>
-          <Text variant="h4" className="text-center">Todavía no tenés círculos</Text>
+          <Text variant="h4" className="text-center">{copy.noWallsYet}</Text>
           <Text variant="muted" className="text-center px-8">
-            Creá un círculo e invitá a tus seres queridos. Las fotos las ves en el widget de tu
+            Creá un wall e invitá a tus seres queridos. Las fotos las ves en el widget de tu
             pantalla de inicio.
           </Text>
           <Button size="lg" className="mt-2" onPress={() => router.push('/(app)/groups')}>
-            Crear mi primer círculo
+            {copy.firstWall}
           </Button>
         </View>
       </Screen>
@@ -179,18 +219,15 @@ export default function HomeScreen() {
     <Screen scrollable={false}>
       <View className="flex-1 gap-4">
         <View className="pt-4 gap-1">
-          <Text variant="h2">Mis círculos</Text>
-          <Text variant="muted">
-            Las fotos de tu heladera están en el widget. Acá ves quién forma parte de cada
-            círculo.
-          </Text>
+          <Text variant="h2">{copy.myWalls}</Text>
+          <Text variant="muted">{copy.widgetPhotosHint}</Text>
         </View>
 
         <Pressable
           className="flex-row items-center justify-between px-4 py-3 rounded-xl bg-muted"
           onPress={() => router.push('/(app)/groups')}
         >
-          <Text className="font-medium">Crear o unirme a un círculo</Text>
+          <Text className="font-medium">{copy.createOrJoin}</Text>
           <ChevronRight size={18} color="#71717a" />
         </Pressable>
 
@@ -209,6 +246,8 @@ export default function HomeScreen() {
                 currentUserId={user?.id ?? ''}
                 onCopyCode={copyCode}
                 onShareCode={shareCode}
+                isOwner={item.createdBy === user?.id}
+                onDelete={() => handleDeleteGroup(item)}
               />
             )}
             contentContainerClassName="gap-3 pb-8"

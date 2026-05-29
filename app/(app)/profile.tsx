@@ -84,7 +84,7 @@ export default function ProfileScreen() {
   const handleDeleteAccountPress = () => {
     Alert.alert(
       '¿Eliminar tu cuenta?',
-      'Vas a perder acceso a FridgeWall y a todos tus círculos. Esta acción no se puede deshacer.',
+      'Vas a perder acceso a FridgeWall y a todos tus walls. Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -214,7 +214,7 @@ export default function ProfileScreen() {
           </DialogHeader>
           <Text variant="muted" className="mb-2">
             Por seguridad, confirmá con tu contraseña. Se borrarán tus datos y saldrás de todos tus
-            círculos.
+            walls.
           </Text>
           <Input
             label="Contraseña"

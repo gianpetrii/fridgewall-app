@@ -32,14 +32,14 @@ export default function UploadModal() {
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? groups[0] ?? null;
 
-  // Cargar grupos si aún no están disponibles
+  // Cargar walls si aún no están disponibles
   React.useEffect(() => {
     if (user && groups.length === 0) {
       fetchGroups(user.id);
     }
   }, [user]);
 
-  // Abrir picker automáticamente una sola vez que los grupos estén listos
+  // Abrir picker automáticamente una sola vez que los walls estén listos
   React.useEffect(() => {
     if (!launched && activeGroup) {
       setLaunched(true);
@@ -108,7 +108,7 @@ export default function UploadModal() {
     }
   };
 
-  // Loading mientras los grupos cargan o el picker aún no se lanzó
+  // Loading mientras los walls cargan o el picker aún no se lanzó
   if (!activeGroup || !launched) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
@@ -165,7 +165,7 @@ export default function UploadModal() {
         )}
 
         <Button size="lg" className="mt-4" loading={isUploading} onPress={handleUpload}>
-          Publicar en la heladera
+          Publicar en la wall
         </Button>
 
         <Text variant="small" className="text-muted-foreground text-center mt-2">
