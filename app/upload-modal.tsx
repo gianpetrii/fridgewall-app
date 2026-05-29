@@ -31,6 +31,14 @@ function UploadModalContent() {
   const { source } = useLocalSearchParams<{ source: Source }>();
   const { toast } = useToast();
 
+  const safeClose = React.useCallback(() => {
+    if (router.canGoBack()) {
+      router.dismiss();
+    } else {
+      router.replace('/(app)');
+    }
+  }, [router]);
+
   const { user } = useAuthStore();
   const { groups, activeGroupId, fetchGroups } = useGroupsStore();
   const { uploadAndPost, isUploading, uploadProgress } = usePostsStore();
@@ -64,7 +72,7 @@ function UploadModalContent() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara.');
-      router.dismiss();
+      safeClose();
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -73,7 +81,7 @@ function UploadModalContent() {
       quality: 0.8,
     });
     if (result.canceled) {
-      router.dismiss();
+      safeClose();
     } else {
       setPendingUri(result.assets[0].uri);
     }
@@ -83,7 +91,7 @@ function UploadModalContent() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería.');
-      router.dismiss();
+      safeClose();
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -93,7 +101,7 @@ function UploadModalContent() {
       quality: 0.8,
     });
     if (result.canceled) {
-      router.dismiss();
+      safeClose();
     } else {
       setPendingUri(result.assets[0].uri);
     }
@@ -110,8 +118,10 @@ function UploadModalContent() {
         posterName: user.name,
         createdAt: Date.now(),
       });
-      toast({ message: '¡Foto publicada!', variant: 'success' });
-      router.dismiss();
+      toast({ message: '¡Foto publicada! 🧲', variant: 'success' });
+      // Pequeña pausa para que el usuario vea el toast antes de cerrar
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      safeClose();
     } catch {
       Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
     }
@@ -141,7 +151,7 @@ function UploadModalContent() {
         <View className="flex-row items-center justify-between pb-4">
           <Text variant="h3">Nueva foto</Text>
           <Pressable
-            onPress={() => router.dismiss()}
+            onPress={safeClose}
             className="w-8 h-8 items-center justify-center rounded-full bg-muted"
           >
             <X size={18} color="#71717a" />
