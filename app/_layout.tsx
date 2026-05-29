@@ -40,6 +40,9 @@ function DeepLinkHandler() {
 
   const navigate = React.useCallback(
     (url: string) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7833/ingest/fd95910a-cb48-4683-9e51-9302b10846ef',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'46b5be'},body:JSON.stringify({sessionId:'46b5be',location:'_layout.tsx:navigate',message:'DeepLinkHandler navigate called',data:{url,user:!!user,isInitialized},hypothesisId:'A-B',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!user || !isInitialized) {
         pendingUrl.current = url;
         return;
@@ -63,9 +66,17 @@ function DeepLinkHandler() {
 
   React.useEffect(() => {
     Linking.getInitialURL().then((url) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7833/ingest/fd95910a-cb48-4683-9e51-9302b10846ef',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'46b5be'},body:JSON.stringify({sessionId:'46b5be',location:'_layout.tsx:getInitialURL',message:'getInitialURL result',data:{url},hypothesisId:'B',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (url) navigate(url);
     });
-    const sub = Linking.addEventListener('url', ({ url }) => navigate(url));
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7833/ingest/fd95910a-cb48-4683-9e51-9302b10846ef',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'46b5be'},body:JSON.stringify({sessionId:'46b5be',location:'_layout.tsx:addEventListener',message:'URL event received',data:{url},hypothesisId:'B',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      navigate(url);
+    });
     return () => sub.remove();
   }, [navigate]);
 
@@ -100,6 +111,8 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={authStackScreenOptions} />
           <Stack.Screen name="(app)" options={appStackScreenOptions} />
           <Stack.Screen name="upload-modal" options={modalScreenOptions} />
+          <Stack.Screen name="camera" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'none' }} />
         </Stack>
       </AuthGuard>
     </>
