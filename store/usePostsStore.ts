@@ -23,7 +23,7 @@ interface PostsStore {
     userName: string | undefined,
     localUri: string,
     caption?: string,
-  ) => Promise<void>;
+  ) => Promise<string>;
   removePost: (groupId: string, postId: string, photoUrl: string) => Promise<void>;
   react: (groupId: string, postId: string, userId: string, userName: string | undefined, type: ReactionType) => Promise<void>;
   loadReactions: (groupId: string, postId: string) => Promise<void>;
@@ -52,6 +52,7 @@ export const usePostsStore = create<PostsStore>((set, get) => ({
         set({ uploadProgress: pct }),
       );
       await createPost(groupId, userId, userName, photoUrl, caption);
+      return photoUrl;
     } finally {
       set({ isUploading: false, uploadProgress: 0 });
     }

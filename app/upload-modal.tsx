@@ -110,10 +110,10 @@ function UploadModalContent() {
   const handleUpload = async () => {
     if (!pendingUri || !activeGroup || !user) return;
     try {
-      await uploadAndPost(activeGroup.id, user.id, user.name, pendingUri, caption || undefined);
-      // Actualizar widget con la foto subida
+      const firebaseUrl = await uploadAndPost(activeGroup.id, user.id, user.name, pendingUri, caption || undefined);
+      // Actualizar widget con la URL de Firebase (no la URI local)
       saveWidgetData({
-        photoUrl: pendingUri,
+        photoUrl: firebaseUrl,
         groupName: activeGroup.name,
         posterName: user.name,
         createdAt: Date.now(),
