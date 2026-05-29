@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   View,
   TextInput,
+  Platform,
   type TextInputProps,
   type NativeSyntheticEvent,
   type TextInputFocusEventData,
@@ -29,6 +30,7 @@ const Input = React.forwardRef<TextInput, InputProps>(
       onFocus,
       onBlur,
       editable = true,
+      style,
       ...props
     },
     ref,
@@ -54,7 +56,7 @@ const Input = React.forwardRef<TextInput, InputProps>(
         )}
         <View
           className={cn(
-            'flex-row items-center h-11 rounded-lg border bg-transparent px-3',
+            'flex-row items-center min-h-12 rounded-lg border bg-transparent px-3',
             isFocused ? 'border-ring' : 'border-input',
             error && 'border-destructive',
             !editable && 'opacity-50',
@@ -64,9 +66,13 @@ const Input = React.forwardRef<TextInput, InputProps>(
           <TextInput
             ref={ref}
             className={cn(
-              'flex-1 text-base text-foreground placeholder:text-muted-foreground',
+              'flex-1 py-2 text-base leading-5 text-foreground placeholder:text-muted-foreground',
               className,
             )}
+            style={[
+              Platform.OS === 'android' ? { includeFontPadding: false } : undefined,
+              style,
+            ]}
             placeholderTextColor="#71717a"
             editable={editable}
             onFocus={handleFocus}
