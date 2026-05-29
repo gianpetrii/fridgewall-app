@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { View, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Moon, Sun, Monitor, LogOut, Pencil, Check, X, Trash2 } from 'lucide-react-native';
+import { Moon, Sun, Monitor, LogOut, Pencil, Check, X, Trash2, Info } from 'lucide-react-native';
+import { Linking } from 'react-native';
 import { cn } from '@/lib/utils';
 import { getFirebaseErrorMessage } from '@/lib/utils';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -34,6 +35,7 @@ export default function ProfileScreen() {
   const [deletePassword, setDeletePassword] = React.useState('');
 
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
+  const [attributionOpen, setAttributionOpen] = React.useState(false);
   const [editingName, setEditingName] = React.useState(false);
   const [nameInput, setNameInput] = React.useState(user?.name ?? '');
   const [savingName, setSavingName] = React.useState(false);
@@ -209,6 +211,13 @@ export default function ProfileScreen() {
             <Text className="text-base font-semibold text-destructive">Eliminar cuenta</Text>
           </View>
         </Button>
+
+        <Pressable
+          onPress={() => setAttributionOpen(true)}
+          className="items-center py-2 active:opacity-50"
+        >
+          <Info size={16} color="#71717a" />
+        </Pressable>
       </View>
 
       <Dialog
@@ -255,6 +264,40 @@ export default function ProfileScreen() {
               onPress={handleConfirmDeleteAccount}
             >
               Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={attributionOpen} onOpenChange={setAttributionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Créditos</DialogTitle>
+          </DialogHeader>
+          <View className="gap-3 mt-1">
+            <Text variant="muted">
+              El ícono de la app fue diseñado por{' '}
+              <Text
+                variant="muted"
+                className="text-primary underline"
+                onPress={() => Linking.openURL('https://www.flaticon.com/authors/freepik')}
+              >
+                Freepik
+              </Text>
+              {' '}y está disponible en{' '}
+              <Text
+                variant="muted"
+                className="text-primary underline"
+                onPress={() => Linking.openURL('https://www.flaticon.com')}
+              >
+                Flaticon
+              </Text>
+              .
+            </Text>
+          </View>
+          <DialogFooter className="mt-4">
+            <Button className="flex-1" onPress={() => setAttributionOpen(false)}>
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>
