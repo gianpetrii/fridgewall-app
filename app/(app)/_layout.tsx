@@ -6,12 +6,13 @@ import { useWidgetSync } from '@/hooks/useWidgetSync';
 import { Colors } from '@/constants/colors';
 
 export default function AppLayout() {
-  const { resolvedScheme } = useColorScheme() as { resolvedScheme: 'light' | 'dark' };
-  const colors = Colors[resolvedScheme ?? 'light'];
+  const { resolvedScheme } = useColorScheme();
+  const colors = Colors[resolvedScheme];
   useWidgetSync();
 
   return (
     <Tabs
+      key={resolvedScheme}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.tabIconActive,

@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
+import { authStackScreenOptions } from '@/constants/navigation';
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={authStackScreenOptions}>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="forgot-password" />

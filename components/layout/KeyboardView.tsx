@@ -1,16 +1,19 @@
 import * as React from 'react';
+import { View, type ScrollViewProps } from 'react-native';
 import {
+  KeyboardAwareScrollView,
   KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  type KeyboardAvoidingViewProps,
-  type ScrollViewProps,
-} from 'react-native';
+} from 'react-native-keyboard-controller';
 import { cn } from '@/lib/utils';
+import { AnimatedScreen } from './AnimatedScreen';
 
-interface KeyboardViewProps extends KeyboardAvoidingViewProps {
+interface KeyboardViewProps {
+  className?: string;
+  children: React.ReactNode;
   scrollable?: boolean;
   scrollProps?: ScrollViewProps;
+  bottomOffset?: number;
+  animated?: boolean;
 }
 
 function KeyboardView({
@@ -18,28 +21,34 @@ function KeyboardView({
   children,
   scrollable = true,
   scrollProps,
-  ...props
+  bottomOffset = 16,
+  animated = true,
 }: KeyboardViewProps) {
-  return (
-    <KeyboardAvoidingView
-      className={cn('flex-1', className)}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      {...props}
-    >
-      {scrollable ? (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
+  const motion = (node: React.ReactNode) => (
+    <AnimatedScreen disabled={!animated}>{node}</AnimatedScreen>
+  );
+
+  if (scrollable) {
+    return motion(
+        <KeyboardAwareScrollView
+          className={cn('flex-1 bg-background', className)}
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="flex-grow"
+          bottomOffset={bottomOffset}
           {...scrollProps}
         >
           {children}
-        </ScrollView>
-      ) : (
-        children
-      )}
-    </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>,
+    );
+  }
+
+  return motion(
+    <KeyboardAvoidingView
+      className={cn('flex-1 bg-background', className)}
+      behavior="padding"
+    >
+      {children}
+    </KeyboardAvoidingView>,
   );
 }
 

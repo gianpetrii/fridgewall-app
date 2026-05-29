@@ -23,7 +23,7 @@ interface AuthStore extends AuthState {
   register: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   initialize: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -136,12 +136,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  deleteAccount: async () => {
+  deleteAccount: async (password) => {
     set({ isLoading: true });
     try {
       useGroupsStore.getState().reset();
       usePostsStore.getState().reset();
-      await deleteAccountData();
+      await deleteAccountData(password);
       set({ user: null, session: null });
     } finally {
       set({ isLoading: false });

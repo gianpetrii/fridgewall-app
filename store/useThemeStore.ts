@@ -25,7 +25,10 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
   initialize: async () => {
     const saved = await storage.get<ColorScheme>(STORAGE_KEYS.COLOR_SCHEME);
     const scheme = saved ?? 'system';
-    set({ colorScheme: scheme, resolvedScheme: resolveScheme(scheme) });
+    const resolved = resolveScheme(scheme);
+    set({ colorScheme: scheme, resolvedScheme: resolved });
+    // NativeWind usa la clase `dark` en el root; no forzar Appearance para evitar desync
+    Appearance.setColorScheme(null);
 
     Appearance.addChangeListener(() => {
       const { colorScheme } = get();
@@ -37,7 +40,9 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
 
   setColorScheme: async (scheme) => {
     await storage.set(STORAGE_KEYS.COLOR_SCHEME, scheme);
-    set({ colorScheme: scheme, resolvedScheme: resolveScheme(scheme) });
+    const resolved = resolveScheme(scheme);
+    set({ colorScheme: scheme, resolvedScheme: resolved });
+    Appearance.setColorScheme(null);
   },
 
   toggle: async () => {

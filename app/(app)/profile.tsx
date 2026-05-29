@@ -9,9 +9,9 @@ import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/text';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { updateDisplayName, uploadAvatar } from '@/lib/profile';
@@ -28,6 +28,8 @@ export default function ProfileScreen() {
   const { preference: colorScheme, setColorScheme } = useThemeStore();
   const { isDark } = useColorScheme();
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deletePassword, setDeletePassword] = React.useState('');
 
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
   const [editingName, setEditingName] = React.useState(false);
@@ -79,39 +81,39 @@ export default function ProfileScreen() {
   const iconColor = isDark ? '#fafafa' : '#18181b';
   const mutedIconColor = '#71717a';
 
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Eliminar cuenta',
-      'Esta acción es permanente. Saldrás de todos tus círculos y se borrarán tus datos.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingAccount(true);
-            try {
-              await deleteAccount();
-            } catch (err) {
-              Alert.alert('No se pudo eliminar la cuenta', getFirebaseErrorMessage(err));
-            } finally {
-              setDeletingAccount(false);
-            }
-          },
-        },
-      ],
-    );
-  };
-
   const handleDeleteAccountPress = () => {
     Alert.alert(
       '¿Eliminar tu cuenta?',
       'Vas a perder acceso a FridgeWall y a todos tus círculos. Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Continuar', style: 'destructive', onPress: confirmDeleteAccount },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            setDeletePassword('');
+            setDeleteDialogOpen(true);
+          },
+        },
       ],
     );
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      Alert.alert('Contraseña requerida', 'Ingresá tu contraseña para confirmar la eliminación.');
+      return;
+    }
+    setDeletingAccount(true);
+    try {
+      await deleteAccount(deletePassword);
+      setDeleteDialogOpen(false);
+      setDeletePassword('');
+    } catch (err) {
+      Alert.alert('No se pudo eliminar la cuenta', getFirebaseErrorMessage(err));
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   return (
@@ -199,6 +201,55 @@ export default function ProfileScreen() {
         </Button>
       </View>
 
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setDeletePassword('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar cuenta</DialogTitle>
+          </DialogHeader>
+          <Text variant="muted" className="mb-2">
+            Por seguridad, confirmá con tu contraseña. Se borrarán tus datos y saldrás de todos tus
+            círculos.
+          </Text>
+          <Input
+            label="Contraseña"
+            placeholder="Tu contraseña"
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="password"
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            returnKeyType="done"
+            onSubmitEditing={handleConfirmDeleteAccount}
+          />
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onPress={() => {
+                setDeleteDialogOpen(false);
+                setDeletePassword('');
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              loading={deletingAccount}
+              onPress={handleConfirmDeleteAccount}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -212,7 +263,7 @@ export default function ProfileScreen() {
                   key={value}
                   className={cn(
                     'w-full flex-row items-center gap-3 rounded-xl px-4 py-3',
-                    selected ? 'bg-muted' : 'bg-transparent',
+                    selected ? 'bg-accent' : 'bg-transparent',
                   )}
                   onPress={() => {
                     void setColorScheme(value);

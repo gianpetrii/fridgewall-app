@@ -51,9 +51,9 @@ function Dialog({ open, onOpenChange, children, modalProps }: DialogProps) {
 
   React.useEffect(() => {
     if (open) {
-      opacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
+      opacity.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
     } else {
-      opacity.value = withTiming(0, { duration: 150 });
+      opacity.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) });
     }
   }, [open, opacity]);
 
@@ -83,16 +83,35 @@ function Dialog({ open, onOpenChange, children, modalProps }: DialogProps) {
 }
 
 function DialogContent({ className, children, ...props }: DialogContentProps) {
+  const { open } = React.useContext(DialogContext);
+  const scale = useSharedValue(0.96);
+  const translateY = useSharedValue(10);
+
+  React.useEffect(() => {
+    if (open) {
+      scale.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) });
+      translateY.value = withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) });
+    } else {
+      scale.value = 0.96;
+      translateY.value = 10;
+    }
+  }, [open, scale, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+  }));
+
   return (
-    <View
+    <Animated.View
       className={cn(
         'w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg',
         className,
       )}
+      style={animatedStyle}
       {...props}
     >
       {children}
-    </View>
+    </Animated.View>
   );
 }
 

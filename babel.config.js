@@ -10,7 +10,7 @@ module.exports = function (api) {
         '@babel/plugin-transform-react-jsx',
         { runtime: 'automatic', importSource: 'react-native-css-interop' },
       ],
-      // react-native-worklets/plugin omitido: solo requerido por Reanimated 4+
+      'react-native-reanimated/plugin',
     ],
   };
 };

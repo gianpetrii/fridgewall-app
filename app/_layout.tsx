@@ -10,6 +10,12 @@ import { ToastProvider } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useNotifications } from '@/hooks/useNotifications';
+import {
+  appStackScreenOptions,
+  authStackScreenOptions,
+  modalScreenOptions,
+  rootStackScreenOptions,
+} from '@/constants/navigation';
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -105,13 +111,10 @@ export default function RootLayout() {
           <ToastProvider>
             <AuthGuard>
               <DeepLinkHandler />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(app)" />
-                <Stack.Screen
-                  name="upload-modal"
-                  options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
-                />
+              <Stack screenOptions={rootStackScreenOptions}>
+                <Stack.Screen name="(auth)" options={authStackScreenOptions} />
+                <Stack.Screen name="(app)" options={appStackScreenOptions} />
+                <Stack.Screen name="upload-modal" options={modalScreenOptions} />
               </Stack>
             </AuthGuard>
           </ToastProvider>

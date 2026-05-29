@@ -5,6 +5,7 @@ export function useColorScheme() {
 
   return {
     colorScheme: resolvedScheme,
+    resolvedScheme,
     preference: colorScheme,
     isDark: resolvedScheme === 'dark',
     isLight: resolvedScheme === 'light',

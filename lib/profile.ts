@@ -1,4 +1,9 @@
-import { updateProfile as firebaseUpdateProfile, deleteUser } from 'firebase/auth';
+import {
+  updateProfile as firebaseUpdateProfile,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from 'firebase/auth';
 import { doc, updateDoc, deleteDoc, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { auth, db, firebaseStorage } from './firebase';
@@ -38,9 +43,18 @@ export async function uploadAvatar(
   });
 }
 
-export async function deleteAccount(): Promise<void> {
+export async function reauthenticateWithPassword(password: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user?.email) throw new Error('Usuario sin email');
+  const credential = EmailAuthProvider.credential(user.email, password);
+  await reauthenticateWithCredential(user, credential);
+}
+
+export async function deleteAccount(password: string): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error('No user');
+
+  await reauthenticateWithPassword(password);
 
   const groups = await getUserGroups(user.uid);
   await Promise.all(
