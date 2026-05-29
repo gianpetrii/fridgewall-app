@@ -10,6 +10,7 @@ interface GroupsStore {
   createGroup: (name: string, userId: string) => Promise<Group>;
   joinGroup: (code: string, userId: string) => Promise<Group>;
   setActiveGroup: (groupId: string) => void;
+  reset: () => void;
 }
 
 export const useGroupsStore = create<GroupsStore>((set, get) => ({
@@ -21,10 +22,12 @@ export const useGroupsStore = create<GroupsStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const groups = await getUserGroups(userId);
-      set({
-        groups,
-        activeGroupId: get().activeGroupId ?? groups[0]?.id ?? null,
-      });
+      const currentActive = get().activeGroupId;
+      const activeGroupId =
+        currentActive && groups.some((g) => g.id === currentActive)
+          ? currentActive
+          : groups[0]?.id ?? null;
+      set({ groups, activeGroupId });
     } finally {
       set({ isLoading: false });
     }
@@ -62,4 +65,6 @@ export const useGroupsStore = create<GroupsStore>((set, get) => ({
   },
 
   setActiveGroup: (groupId) => set({ activeGroupId: groupId }),
+
+  reset: () => set({ groups: [], activeGroupId: null, isLoading: false }),
 }));

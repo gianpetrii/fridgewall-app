@@ -27,6 +27,7 @@ interface PostsStore {
   removePost: (groupId: string, postId: string, photoUrl: string) => Promise<void>;
   react: (groupId: string, postId: string, userId: string, userName: string | undefined, type: ReactionType) => Promise<void>;
   loadReactions: (groupId: string, postId: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const usePostsStore = create<PostsStore>((set, get) => ({
@@ -70,4 +71,13 @@ export const usePostsStore = create<PostsStore>((set, get) => ({
     const reactions = await getPostReactions(groupId, postId);
     set((state) => ({ reactions: { ...state.reactions, [postId]: reactions } }));
   },
+
+  reset: () =>
+    set({
+      posts: [],
+      reactions: {},
+      isUploading: false,
+      uploadProgress: 0,
+      isLoading: false,
+    }),
 }));

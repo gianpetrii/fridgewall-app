@@ -1,239 +1,169 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, Modal, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
+import { View, FlatList, Pressable, ActivityIndicator, Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Camera, Trash2, X } from 'lucide-react-native';
-import { saveWidgetData } from '@/widgets/updateWidget';
+import { Users, Copy, Share2, Hash, ChevronRight } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Avatar } from '@/components/ui/avatar';
+import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
-import { usePostsStore } from '@/store/usePostsStore';
-import type { Post, ReactionType } from '@/types';
+import { getUsersByIds } from '@/lib/users';
+import type { Group, User } from '@/types';
 
-const REACTIONS: { type: ReactionType; emoji: string }[] = [
-  { type: 'heart', emoji: '❤️' },
-  { type: 'laugh', emoji: '😂' },
-  { type: 'wow', emoji: '😮' },
-  { type: 'sad', emoji: '😢' },
-];
-
-function GroupSelector() {
-  const { groups, activeGroupId, setActiveGroup } = useGroupsStore();
-  if (groups.length <= 1) return null;
+function MemberRow({ member, isYou }: { member: User; isYou: boolean }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className="mb-2"
-      contentContainerClassName="gap-2 px-1"
-    >
-      {groups.map((g) => {
-        const active = g.id === activeGroupId;
-        return (
-          <Pressable
-            key={g.id}
-            onPress={() => setActiveGroup(g.id)}
-            className={[
-              'px-4 py-1.5 rounded-full border',
-              active ? 'bg-primary border-primary' : 'bg-transparent border-border',
-            ].join(' ')}
-          >
-            <Text
-              variant="small"
-              className={active ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}
-            >
-              {g.name}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
-function timeAgo(ms: number): string {
-  const diff = Date.now() - ms;
-  const m = Math.floor(diff / 60000);
-  const h = Math.floor(diff / 3600000);
-  const d = Math.floor(diff / 86400000);
-  if (m < 1) return 'ahora';
-  if (m < 60) return `hace ${m}m`;
-  if (h < 24) return `hace ${h}h`;
-  return `hace ${d}d`;
-}
-
-function PostCard({ post }: { post: Post }) {
-  const { user } = useAuthStore();
-  const { activeGroupId } = useGroupsStore();
-  const { reactions, loadReactions, react, removePost } = usePostsStore();
-  const [showReactions, setShowReactions] = React.useState(false);
-
-  React.useEffect(() => {
-    if (activeGroupId) loadReactions(activeGroupId, post.id);
-  }, [post.id]);
-
-  const postReactions = reactions[post.id] ?? [];
-  const isOwner = user?.id === post.userId;
-
-  const handleReact = async (type: ReactionType) => {
-    if (!user || !activeGroupId) return;
-    setShowReactions(false);
-    await react(activeGroupId, post.id, user.id, user.name, type);
-  };
-
-  const handleDelete = () => {
-    if (!activeGroupId) return;
-    Alert.alert('Eliminar foto', '¿Seguro que querés borrar esta foto?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => removePost(activeGroupId, post.id, post.photoUrl),
-      },
-    ]);
-  };
-
-  const grouped = postReactions.reduce<Record<string, number>>((acc, r) => {
-    const emoji = REACTIONS.find((x) => x.type === r.type)?.emoji ?? r.type;
-    acc[emoji] = (acc[emoji] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  return (
-    <View className="mb-4">
-      <Pressable onLongPress={() => setShowReactions(true)}>
-        <Image
-          source={{ uri: post.photoUrl }}
-          style={{ width: '100%', aspectRatio: 1, borderRadius: 16 }}
-          contentFit="cover"
-          transition={300}
-        />
-      </Pressable>
-
-      <View className="flex-row items-center justify-between mt-2 px-1">
-        <View className="flex-row items-center gap-2">
-          <Text variant="small" className="font-semibold">
-            {post.userName ?? 'Alguien'}
-          </Text>
-          <Text variant="small" className="text-muted-foreground">
-            · {timeAgo(post.createdAt)}
-          </Text>
-        </View>
-        <View className="flex-row items-center gap-2">
-          {Object.entries(grouped).map(([emoji, count]) => (
-            <View key={emoji} className="flex-row items-center gap-0.5">
-              <Text>{emoji}</Text>
-              {count > 1 && <Text variant="small" className="text-muted-foreground">{count}</Text>}
-            </View>
-          ))}
-          {isOwner && (
-            <Pressable onPress={handleDelete} className="ml-1">
-              <Trash2 size={14} color="#71717a" />
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {post.caption ? (
-        <Text variant="small" className="text-muted-foreground px-1 mt-0.5">
-          {post.caption}
+    <View className="flex-row items-center gap-3 py-2">
+      <Avatar src={member.avatarUrl} fallback={member.name ?? member.email} size="sm" />
+      <View className="flex-1">
+        <Text className="font-medium">
+          {member.name ?? member.email.split('@')[0]}
+          {isYou ? ' (vos)' : ''}
         </Text>
-      ) : null}
-
-      {/* Reaction picker */}
-      <Modal visible={showReactions} transparent animationType="fade">
-        <Pressable
-          className="flex-1 bg-black/50 items-center justify-center"
-          onPress={() => setShowReactions(false)}
-        >
-          <View className="bg-background rounded-2xl px-6 py-4 flex-row gap-4">
-            {REACTIONS.map(({ type, emoji }) => (
-              <Pressable key={type} onPress={() => handleReact(type)} className="items-center">
-                <Text className="text-3xl">{emoji}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+        <Text variant="small" className="text-muted-foreground">
+          {member.email}
+        </Text>
+      </View>
     </View>
   );
 }
 
-export default function FeedScreen() {
+function GroupCard({
+  group,
+  members,
+  currentUserId,
+  onCopyCode,
+  onShareCode,
+}: {
+  group: Group;
+  members: User[];
+  currentUserId: string;
+  onCopyCode: (code: string) => void;
+  onShareCode: (name: string, code: string) => void;
+}) {
+  const orderedMembers = React.useMemo(() => {
+    const you = members.find((m) => m.id === currentUserId);
+    const rest = members.filter((m) => m.id !== currentUserId);
+    return you ? [you, ...rest] : members;
+  }, [members, currentUserId]);
+
+  return (
+    <Card>
+      <CardContent className="py-4 px-4 gap-3">
+        <View className="flex-row items-center gap-3">
+          <View className="w-11 h-11 rounded-full bg-primary/10 items-center justify-center">
+            <Users size={20} color="#71717a" />
+          </View>
+          <View className="flex-1">
+            <Text variant="h4">{group.name}</Text>
+            <Text variant="small" className="text-muted-foreground">
+              {group.members.length}{' '}
+              {group.members.length === 1 ? 'integrante' : 'integrantes'}
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted flex-1">
+            <Hash size={11} color="#71717a" />
+            <Text variant="small" className="text-muted-foreground font-mono tracking-widest">
+              {group.inviteCode}
+            </Text>
+          </View>
+          <Pressable
+            className="w-9 h-9 rounded-lg bg-muted items-center justify-center"
+            onPress={() => onCopyCode(group.inviteCode)}
+          >
+            <Copy size={15} color="#71717a" />
+          </Pressable>
+          <Pressable
+            className="w-9 h-9 rounded-lg bg-muted items-center justify-center"
+            onPress={() => onShareCode(group.name, group.inviteCode)}
+          >
+            <Share2 size={15} color="#71717a" />
+          </Pressable>
+        </View>
+
+        <View className="border-t border-border pt-1">
+          {orderedMembers.length === 0 ? (
+            <Text variant="small" className="text-muted-foreground py-2">
+              Cargando integrantes…
+            </Text>
+          ) : (
+            orderedMembers.map((member) => (
+              <MemberRow key={member.id} member={member} isYou={member.id === currentUserId} />
+            ))
+          )}
+        </View>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { groups, activeGroupId, fetchGroups, isLoading: groupsLoading } = useGroupsStore();
-  const { posts, isLoading: postsLoading, isUploading, uploadProgress, subscribeToGroup, uploadAndPost } = usePostsStore();
-  const [captionModal, setCaptionModal] = React.useState<string | null>(null);
-  const [caption, setCaption] = React.useState('');
-  const [pendingUri, setPendingUri] = React.useState<string | null>(null);
+  const { groups, isLoading: groupsLoading, fetchGroups } = useGroupsStore();
+  const { toast } = useToast();
+  const [membersByGroup, setMembersByGroup] = React.useState<Record<string, User[]>>({});
+  const [membersLoading, setMembersLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (user) fetchGroups(user.id);
-  }, [user]);
+  }, [user, fetchGroups]);
 
   React.useEffect(() => {
-    if (!activeGroupId) return;
-    const unsub = subscribeToGroup(activeGroupId);
-    return unsub;
-  }, [activeGroupId]);
-
-  // Actualizar el widget con la foto más reciente
-  React.useEffect(() => {
-    if (posts.length === 0 || !activeGroup) return;
-    const latest = posts[0];
-    saveWidgetData({
-      photoUrl: latest.photoUrl,
-      groupName: activeGroup.name,
-      posterName: latest.userName,
-      createdAt: latest.createdAt,
-    });
-  }, [posts, activeGroup]);
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir fotos.');
+    if (groups.length === 0) {
+      setMembersByGroup({});
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+
+    let cancelled = false;
+    setMembersLoading(true);
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          groups.map(async (group) => {
+            const members = await getUsersByIds(group.members);
+            return [group.id, members] as const;
+          }),
+        );
+        if (!cancelled) {
+          setMembersByGroup(Object.fromEntries(entries));
+        }
+      } finally {
+        if (!cancelled) setMembersLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groups]);
+
+  const copyCode = async (code: string) => {
+    await Clipboard.setStringAsync(code);
+    toast({ message: `Código ${code} copiado`, variant: 'success' });
+  };
+
+  const shareCode = async (name: string, code: string) => {
+    await Share.share({
+      message: `Unite a mi círculo "${name}" en FridgeWall con el código: ${code}`,
     });
-    if (!result.canceled) {
-      setPendingUri(result.assets[0].uri);
-      setCaptionModal('open');
-    }
   };
-
-  const handleUpload = async () => {
-    if (!pendingUri || !activeGroupId || !user) return;
-    setCaptionModal(null);
-    try {
-      await uploadAndPost(activeGroupId, user.id, user.name, pendingUri, caption || undefined);
-    } catch {
-      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
-    } finally {
-      setPendingUri(null);
-      setCaption('');
-    }
-  };
-
-  const activeGroup = groups.find((g) => g.id === activeGroupId);
 
   if (!groupsLoading && groups.length === 0) {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center gap-3 pb-20">
-          <Text className="text-5xl">🧲</Text>
-          <Text variant="h4" className="text-center">Tu heladera está vacía</Text>
+          <Text className="text-5xl">👥</Text>
+          <Text variant="h4" className="text-center">Todavía no tenés círculos</Text>
           <Text variant="muted" className="text-center px-8">
-            Creá un círculo e invitá a tus seres queridos para empezar a compartir fotos
+            Creá un círculo e invitá a tus seres queridos. Las fotos las ves en el widget de tu
+            pantalla de inicio.
           </Text>
           <Button size="lg" className="mt-2" onPress={() => router.push('/(app)/groups')}>
             Crear mi primer círculo
@@ -243,103 +173,49 @@ export default function FeedScreen() {
     );
   }
 
+  const isLoading = groupsLoading || membersLoading;
+
   return (
     <Screen scrollable={false}>
-      {/* Header */}
-      <View className="flex-row items-center justify-between pt-4 pb-2">
-        <View>
-          <Text variant="h2">{activeGroup?.name ?? 'FridgeWall'}</Text>
-          {activeGroup && (
-            <Text variant="small" className="text-muted-foreground">
-              {activeGroup.members.length} integrante{activeGroup.members.length !== 1 ? 's' : ''}
-            </Text>
-          )}
-        </View>
-        <Pressable
-          className="w-12 h-12 rounded-full bg-primary items-center justify-center"
-          onPress={pickImage}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Camera size={22} color="white" />
-          )}
-        </Pressable>
-      </View>
-
-      {/* Selector de grupo */}
-      <GroupSelector />
-
-      {/* Upload progress */}
-      {isUploading && (
-        <View className="h-1 bg-muted rounded-full overflow-hidden mb-2">
-          <View
-            className="h-full bg-primary rounded-full"
-            style={{ width: `${uploadProgress}%` }}
-          />
-        </View>
-      )}
-
-      {/* Feed */}
-      {postsLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" />
-        </View>
-      ) : posts.length === 0 ? (
-        <View className="flex-1 items-center justify-center gap-3 pb-20">
-          <Text className="text-5xl">📸</Text>
-          <Text variant="h4" className="text-center">Todavía no hay fotos</Text>
-          <Text variant="muted" className="text-center px-8">
-            Sé el primero en dejar una foto en la heladera
+      <View className="flex-1 gap-4">
+        <View className="pt-4 gap-1">
+          <Text variant="h2">Mis círculos</Text>
+          <Text variant="muted">
+            Las fotos de tu heladera están en el widget. Acá ves quién forma parte de cada
+            círculo.
           </Text>
-          <Button variant="outline" onPress={pickImage}>Subir foto</Button>
         </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PostCard post={item} />}
-          showsVerticalScrollIndicator={false}
-          contentContainerClassName="pb-8"
-        />
-      )}
 
-      {/* Caption modal */}
-      <Modal visible={captionModal === 'open'} transparent animationType="slide">
         <Pressable
-          className="flex-1 bg-black/50 justify-end"
-          onPress={() => setCaptionModal(null)}
+          className="flex-row items-center justify-between px-4 py-3 rounded-xl bg-muted"
+          onPress={() => router.push('/(app)/groups')}
         >
-          <Pressable className="bg-background rounded-t-3xl px-6 pt-6 pb-10 gap-4">
-            <View className="flex-row items-center justify-between">
-              <Text variant="h3">Agregar descripción</Text>
-              <Pressable onPress={() => setCaptionModal(null)}>
-                <X size={20} color="#71717a" />
-              </Pressable>
-            </View>
-            {pendingUri && (
-              <Image
-                source={{ uri: pendingUri }}
-                style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
-                contentFit="cover"
+          <Text className="font-medium">Crear o unirme a un círculo</Text>
+          <ChevronRight size={18} color="#71717a" />
+        </Pressable>
+
+        {isLoading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" />
+          </View>
+        ) : (
+          <FlatList
+            data={groups}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <GroupCard
+                group={item}
+                members={membersByGroup[item.id] ?? []}
+                currentUserId={user?.id ?? ''}
+                onCopyCode={copyCode}
+                onShareCode={shareCode}
               />
             )}
-            <TextInput
-              className="bg-muted rounded-xl px-4 py-3 text-foreground"
-              placeholder="¿Qué está pasando? (opcional)"
-              placeholderTextColor="#71717a"
-              value={caption}
-              onChangeText={setCaption}
-              multiline
-              maxLength={150}
-            />
-            <Button size="lg" onPress={handleUpload}>
-              Publicar en la heladera
-            </Button>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            contentContainerClassName="gap-3 pb-8"
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
     </Screen>
   );
 }

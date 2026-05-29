@@ -2,11 +2,13 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, User } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useWidgetSync } from '@/hooks/useWidgetSync';
 import { Colors } from '@/constants/colors';
 
 export default function AppLayout() {
   const { resolvedScheme } = useColorScheme() as { resolvedScheme: 'light' | 'dark' };
   const colors = Colors[resolvedScheme ?? 'light'];
+  useWidgetSync();
 
   return (
     <Tabs
