@@ -48,17 +48,14 @@ const DialogContext = React.createContext<{
 
 function Dialog({ open, onOpenChange, children, modalProps }: DialogProps) {
   const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.95);
 
   React.useEffect(() => {
     if (open) {
       opacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
-      scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.back(1.05)) });
     } else {
       opacity.value = withTiming(0, { duration: 150 });
-      scale.value = withTiming(0.95, { duration: 150 });
     }
-  }, [open, opacity, scale]);
+  }, [open, opacity]);
 
   return (
     <DialogContext.Provider value={{ open, onOpenChange }}>
@@ -86,28 +83,16 @@ function Dialog({ open, onOpenChange, children, modalProps }: DialogProps) {
 }
 
 function DialogContent({ className, children, ...props }: DialogContentProps) {
-  const { open } = React.useContext(DialogContext);
-  const scale = useSharedValue(0.95);
-
-  React.useEffect(() => {
-    if (open) {
-      scale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.back(1.05)) });
-    }
-  }, [open, scale]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
   return (
-    <Animated.View
+    <View
       className={cn(
-        'w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-lg',
+        'w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-lg',
         className,
       )}
-      style={animatedStyle}
       {...props}
     >
       {children}
-    </Animated.View>
+    </View>
   );
 }
 

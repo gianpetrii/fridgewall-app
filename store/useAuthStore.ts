@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { deleteAccount as deleteAccountData } from '@/lib/profile';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { usePostsStore } from '@/store/usePostsStore';
 import type { AuthState, User, Session } from '@/types';
@@ -22,6 +23,7 @@ interface AuthStore extends AuthState {
   register: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   initialize: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -128,6 +130,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
       useGroupsStore.getState().reset();
       usePostsStore.getState().reset();
       await signOut(auth);
+      set({ user: null, session: null });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteAccount: async () => {
+    set({ isLoading: true });
+    try {
+      useGroupsStore.getState().reset();
+      usePostsStore.getState().reset();
+      await deleteAccountData();
       set({ user: null, session: null });
     } finally {
       set({ isLoading: false });

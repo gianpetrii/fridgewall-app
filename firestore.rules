@@ -21,6 +21,14 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']);
       }
 
+      function isLeaving() {
+        return request.auth != null
+          && request.auth.uid in resource.data.members
+          && !(request.auth.uid in request.resource.data.members)
+          && request.resource.data.members.size() == resource.data.members.size() - 1
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']);
+      }
+
       // Miembros leen su grupo; cualquier usuario autenticado puede leer para buscar por inviteCode
       allow read: if request.auth != null && (
         request.auth.uid in resource.data.members
@@ -30,7 +38,7 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid in request.resource.data.members;
 
-      allow update: if isMember() || isJoining();
+      allow update: if isMember() || isJoining() || isLeaving();
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
 

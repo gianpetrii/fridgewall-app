@@ -1,7 +1,10 @@
 import * as React from 'react';
 import { View, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Moon, Sun, Monitor, LogOut, Pencil, Check, X } from 'lucide-react-native';
+import { Moon, Sun, Monitor, LogOut, Pencil, Check, X, Trash2 } from 'lucide-react-native';
+import { cn } from '@/lib/utils';
+import { getFirebaseErrorMessage } from '@/lib/utils';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { Screen } from '@/components/layout/Screen';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -21,8 +24,10 @@ const themeOptions: { value: ColorScheme; label: string; icon: React.ElementType
 ];
 
 export default function ProfileScreen() {
-  const { user, logout, setUser, isLoading } = useAuthStore();
-  const { colorScheme, setColorScheme } = useThemeStore();
+  const { user, logout, deleteAccount, setUser, isLoading } = useAuthStore();
+  const { preference: colorScheme, setColorScheme } = useThemeStore();
+  const { isDark } = useColorScheme();
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
 
   const [themeDialogOpen, setThemeDialogOpen] = React.useState(false);
   const [editingName, setEditingName] = React.useState(false);
@@ -69,6 +74,44 @@ export default function ProfileScreen() {
     } finally {
       setUploadingAvatar(false);
     }
+  };
+
+  const iconColor = isDark ? '#fafafa' : '#18181b';
+  const mutedIconColor = '#71717a';
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Esta acción es permanente. Saldrás de todos tus círculos y se borrarán tus datos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await deleteAccount();
+            } catch (err) {
+              Alert.alert('No se pudo eliminar la cuenta', getFirebaseErrorMessage(err));
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAccountPress = () => {
+    Alert.alert(
+      '¿Eliminar tu cuenta?',
+      'Vas a perder acceso a FridgeWall y a todos tus círculos. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Continuar', style: 'destructive', onPress: confirmDeleteAccount },
+      ],
+    );
   };
 
   return (
@@ -140,6 +183,20 @@ export default function ProfileScreen() {
             <Text className="text-base font-semibold text-white">Cerrar sesión</Text>
           </View>
         </Button>
+
+        <Button
+          variant="outline"
+          size="lg"
+          loading={deletingAccount}
+          disabled={isLoading || deletingAccount}
+          onPress={handleDeleteAccountPress}
+          className="border-destructive"
+        >
+          <View className="flex-row items-center gap-2">
+            <Trash2 size={18} color="#ef4444" />
+            <Text className="text-base font-semibold text-destructive">Eliminar cuenta</Text>
+          </View>
+        </Button>
       </View>
 
       <Dialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen}>
@@ -147,25 +204,31 @@ export default function ProfileScreen() {
           <DialogHeader>
             <DialogTitle>Apariencia</DialogTitle>
           </DialogHeader>
-          <View className="gap-2 mt-2">
-            {themeOptions.map(({ value, label, icon: Icon }) => (
-              <Pressable
-                key={value}
-                className={[
-                  'flex-row items-center gap-3 p-3 rounded-lg',
-                  colorScheme === value ? 'bg-accent' : 'bg-transparent',
-                ].join(' ')}
-                onPress={() => { setColorScheme(value); setThemeDialogOpen(false); }}
-              >
-                <Icon size={20} color={colorScheme === value ? '#18181b' : '#71717a'} />
-                <Text
-                  variant="p"
-                  className={colorScheme === value ? 'font-semibold' : 'text-muted-foreground'}
+          <View className="gap-1 mt-2">
+            {themeOptions.map(({ value, label, icon: Icon }) => {
+              const selected = colorScheme === value;
+              return (
+                <Pressable
+                  key={value}
+                  className={cn(
+                    'w-full flex-row items-center gap-3 rounded-xl px-4 py-3',
+                    selected ? 'bg-muted' : 'bg-transparent',
+                  )}
+                  onPress={() => {
+                    void setColorScheme(value);
+                    setThemeDialogOpen(false);
+                  }}
                 >
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
+                  <Icon size={20} color={selected ? iconColor : mutedIconColor} />
+                  <Text
+                    variant="p"
+                    className={cn('flex-1', selected ? 'font-semibold text-foreground' : 'text-muted-foreground')}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </DialogContent>
       </Dialog>
