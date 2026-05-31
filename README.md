@@ -30,4 +30,13 @@ Scripts: `npm run android`, `npm run ios`, `npm run web`.
 
 ## Variables de entorno
 
-Copiá [`.env.example`](.env.example) y configurá las claves `EXPO_PUBLIC_*` y Google Maps según el archivo.
+Copiá [`.env.local.example`](.env.local.example) y configurá las claves `EXPO_PUBLIC_*` y Google Maps según el archivo.
+
+
+## Roadmap de features
+
+- [x] Editor estilo Instagram Stories (texto movible + dibujo sobre la foto)
+- [x] Widget chico: rotación automática + tap entre fotos (iOS; Android con intervalo 8s + tap)
+- [x] Widget mediano: similar
+- [x] Widget grande: mosaico por integrante
+- [x] Volver a la pantalla de inicio del teléfono después de subir
