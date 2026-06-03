@@ -10,13 +10,12 @@ import {
   signInWithCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { Platform } from 'react-native';
 import { auth, db } from '@/lib/firebase';
 import { deleteAccount as deleteAccountData } from '@/lib/profile';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { usePostsStore } from '@/store/usePostsStore';
 import type { AuthState, User, Session } from '@/types';
-
-const GOOGLE_SIGNIN_ENABLED = false;
 
 interface AuthStore extends AuthState {
   login: (email: string, password: string) => Promise<void>;
@@ -67,9 +66,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 
   signInWithGoogle: async () => {
-    if (!GOOGLE_SIGNIN_ENABLED) {
-      throw new Error('Inicio de sesión con Google no está disponible por ahora.');
-    }
     set({ isLoading: true });
     try {
       const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
@@ -77,7 +73,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
       });
-      await GoogleSignin.hasPlayServices();
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
       const response = await GoogleSignin.signIn();
       const idToken = response.data?.idToken;
       if (!idToken) throw new Error('No se pudo obtener el token de Google');
@@ -129,6 +127,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
     try {
       useGroupsStore.getState().reset();
       usePostsStore.getState().reset();
+      if (Platform.OS !== 'web') {
+        const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+        await GoogleSignin.signOut().catch(() => {});
+      }
       await signOut(auth);
       set({ user: null, session: null });
     } finally {

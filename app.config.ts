@@ -45,10 +45,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-font',
     'expo-image-picker',
-    // Google Sign-In desactivado por ahora — reactivar cuando quieras probarlo:
-    // ['@react-native-google-signin/google-signin', {
-    //   iosUrlScheme: 'com.googleusercontent.apps.88096637600-hrf94mmu0hakrqj92anip6fcoihae7e7',
-    // }],
+    ['@react-native-google-signin/google-signin', {
+      iosUrlScheme: 'com.googleusercontent.apps.88096637600-hrf94mmu0hakrqj92anip6fcoihae7e7',
+    }],
     './plugins/withIOSWidget.js',
     './plugins/withoutPushNotifications.js',
     [
@@ -61,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             minWidth: '250dp',
             minHeight: '110dp',
             description: 'Fotos de tu wall en la pantalla de inicio',
-            updatePeriodMillis: 1800000,
+            updatePeriodMillis: 8000,
           },
         ],
       },

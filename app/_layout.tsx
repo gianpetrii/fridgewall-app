@@ -1,10 +1,13 @@
 import * as React from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Linking from 'expo-linking';
+import { advanceWidgetCarousel } from '@/widgets/updateWidget';
+import { returnToDeviceHome } from '@/lib/deviceHome';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useNotifications } from '@/hooks/useNotifications';
+import { ShellProviders } from '@/components/layout/ShellProviders';
 import {
   appStackScreenOptions,
   authStackScreenOptions,
@@ -44,7 +47,11 @@ function DeepLinkHandler() {
         pendingUrl.current = url;
         return;
       }
-      if (url.includes('camera')) {
+      if (url.includes('widget-next')) {
+        void advanceWidgetCarousel().then(() => {
+          returnToDeviceHome();
+        });
+      } else if (url.includes('camera')) {
         router.push('/upload-modal?source=camera');
       } else if (url.includes('gallery')) {
         router.push('/upload-modal?source=gallery');
@@ -95,17 +102,18 @@ export default function RootLayout() {
   }, [user?.id]);
 
   return (
-    <>
+    <ShellProviders>
       <AuthGuard>
         <DeepLinkHandler />
         <Stack screenOptions={rootStackScreenOptions}>
           <Stack.Screen name="(auth)" options={authStackScreenOptions} />
           <Stack.Screen name="(app)" options={appStackScreenOptions} />
           <Stack.Screen name="upload-modal" options={modalScreenOptions} />
+          <Stack.Screen name="photo-editor" options={modalScreenOptions} />
           <Stack.Screen name="camera" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'none' }} />
         </Stack>
       </AuthGuard>
-    </>
+    </ShellProviders>
   );
 }

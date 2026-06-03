@@ -2,9 +2,30 @@ import * as React from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { vars } from 'nativewind';
 import { ToastProvider } from '@/components/ui/toast';
 import { useThemeStore } from '@/store/useThemeStore';
 import { Colors } from '@/constants/colors';
+
+const darkVars = vars({
+  '--background': '240 10% 3.9%',
+  '--foreground': '0 0% 98%',
+  '--card': '240 10% 3.9%',
+  '--card-foreground': '0 0% 98%',
+  '--border': '240 3.7% 15.9%',
+  '--input': '240 3.7% 15.9%',
+  '--primary': '0 0% 98%',
+  '--primary-foreground': '240 5.9% 10%',
+  '--secondary': '240 3.7% 15.9%',
+  '--secondary-foreground': '0 0% 98%',
+  '--muted': '240 3.7% 15.9%',
+  '--muted-foreground': '240 5% 64.9%',
+  '--accent': '240 3.7% 15.9%',
+  '--accent-foreground': '0 0% 98%',
+  '--destructive': '0 72.2% 50.6%',
+  '--destructive-foreground': '0 0% 98%',
+  '--ring': '240 4.9% 83.9%',
+});
 
 export function ShellProviders({ children }: { children: React.ReactNode }) {
   const { resolvedScheme } = useThemeStore();
@@ -14,8 +35,11 @@ export function ShellProviders({ children }: { children: React.ReactNode }) {
       <KeyboardProvider>
         <ToastProvider>
           <View
-            className={resolvedScheme === 'dark' ? 'dark flex-1' : 'flex-1'}
-            style={{ flex: 1, backgroundColor: Colors[resolvedScheme].background }}
+            className="flex-1"
+            style={[
+              { backgroundColor: Colors[resolvedScheme].background },
+              resolvedScheme === 'dark' ? darkVars : undefined,
+            ]}
           >
             {children}
           </View>

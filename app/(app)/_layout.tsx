@@ -3,7 +3,6 @@ import * as React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Home, Users, User } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
-import { ShellProviders } from '@/components/layout/ShellProviders';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useWidgetSync } from '@/hooks/useWidgetSync';
 import { Colors } from '@/constants/colors';
@@ -19,9 +18,17 @@ function NotificationNavigationHandler() {
       }
     });
     return () => sub.remove();
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
+}
+
+function DeferredNotificationHandler() {
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => { setReady(true); }, []);
+  if (!ready) return null;
+  return <NotificationNavigationHandler />;
 }
 
 export default function AppLayout() {
@@ -30,8 +37,8 @@ export default function AppLayout() {
   useWidgetSync();
 
   return (
-    <ShellProviders>
-      <NotificationNavigationHandler />
+    <>
+      <DeferredNotificationHandler />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -72,6 +79,6 @@ export default function AppLayout() {
           }}
         />
       </Tabs>
-    </ShellProviders>
+    </>
   );
 }
