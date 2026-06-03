@@ -1,0 +1,10 @@
+{
+  "name": "fridgewall-shared-data",
+  "version": "1.0.0",
+  "description": "Native module for sharing widget data via App Groups on iOS",
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "expo-modules-core": "*"
+  }
+}
