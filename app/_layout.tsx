@@ -52,9 +52,11 @@ function DeepLinkHandler() {
           returnToDeviceHome();
         });
       } else if (url.includes('camera')) {
-        router.push('/upload-modal?source=camera');
+        router.push('/upload-modal?source=camera&fromWidget=1');
       } else if (url.includes('gallery')) {
-        router.push('/upload-modal?source=gallery');
+        router.push('/upload-modal?source=gallery&fromWidget=1');
+      } else if (url.includes('upload')) {
+        router.push('/upload-modal?fromWidget=1');
       }
     },
     [user, isInitialized, router],

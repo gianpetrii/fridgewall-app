@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { X } from 'lucide-react-native';
+import { X, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { Pressable } from 'react-native';
 import { ShellProviders } from '@/components/layout/ShellProviders';
 import { Button } from '@/components/ui/button';
@@ -33,21 +33,26 @@ export default function UploadModal() {
 
 function UploadModalContent() {
   const router = useRouter();
-  const { source, uri: editedUri, fromEditor, reopenPicker } = useLocalSearchParams<{
+  const { source, uri: editedUri, fromEditor, reopenPicker, fromWidget } = useLocalSearchParams<{
     source?: Source;
     uri?: string;
     fromEditor?: string;
     reopenPicker?: string;
+    fromWidget?: string;
   }>();
   const { toast } = useToast();
 
   const safeClose = React.useCallback(() => {
+    if (fromWidget === '1') {
+      returnToDeviceHome();
+      return;
+    }
     if (router.canGoBack()) {
       router.dismiss();
     } else {
       router.replace('/(app)');
     }
-  }, [router]);
+  }, [router, fromWidget]);
 
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
@@ -76,12 +81,9 @@ function UploadModalContent() {
 
   const goToEditor = React.useCallback(
     (uri: string) => {
-      router.replace({
-        pathname: '/photo-editor',
-        params: { uri, source: source ?? 'gallery' },
-      });
+      setPendingUri(uri);
     },
-    [router, source],
+    [],
   );
 
   const openCamera = React.useCallback(async (): Promise<'picked' | 'canceled' | 'denied'> => {
@@ -126,9 +128,9 @@ function UploadModalContent() {
       safeClose();
       return;
     }
-    for (;;) {
-      const result = source === 'camera' ? await openCamera() : await openGallery();
-      if (result !== 'canceled') break;
+    const result = source === 'camera' ? await openCamera() : await openGallery();
+    if (result === 'canceled') {
+      safeClose();
     }
   }, [source, openCamera, openGallery, safeClose]);
 
@@ -147,12 +149,13 @@ function UploadModalContent() {
   }, [launched, activeGroup, source, reopenPicker, fromEditor, launchPicker]);
 
   const handleCancelPublish = () => {
+    if (fromWidget === '1') {
+      returnToDeviceHome();
+      return;
+    }
     if (source) {
+      setLaunched(false);
       setPendingUri(null);
-      router.replace({
-        pathname: '/upload-modal',
-        params: { source, reopenPicker: '1' },
-      });
       return;
     }
     safeClose();
@@ -194,6 +197,40 @@ function UploadModalContent() {
       Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
     }
   };
+
+  if (!source) {
+    return (
+      <View className="flex-1 bg-background justify-end" style={{ paddingBottom: insets.bottom + 24 }}>
+        <View className="px-5">
+          <Text variant="h3" className="text-center mb-2">Agregar foto</Text>
+          <Text variant="muted" className="text-center mb-6">¿Desde dónde querés subir?</Text>
+          <Pressable
+            onPress={() => router.replace(`/upload-modal?source=camera${fromWidget === '1' ? '&fromWidget=1' : ''}`)}
+            className="flex-row items-center gap-4 bg-muted rounded-2xl px-5 py-4 mb-3"
+          >
+            <Camera size={24} color="#09090b" />
+            <View>
+              <Text className="font-semibold text-base">Cámara</Text>
+              <Text variant="muted" className="text-sm">Sacá una foto ahora</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => router.replace(`/upload-modal?source=gallery${fromWidget === '1' ? '&fromWidget=1' : ''}`)}
+            className="flex-row items-center gap-4 bg-muted rounded-2xl px-5 py-4 mb-6"
+          >
+            <ImageIcon size={24} color="#09090b" />
+            <View>
+              <Text className="font-semibold text-base">Galería</Text>
+              <Text variant="muted" className="text-sm">Elegí una foto existente</Text>
+            </View>
+          </Pressable>
+          <Pressable onPress={safeClose} className="py-3 items-center">
+            <Text variant="muted">Cancelar</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   if (!activeGroup || !launched) {
     return (
