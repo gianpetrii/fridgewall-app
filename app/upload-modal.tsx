@@ -128,9 +128,9 @@ function UploadModalContent() {
       safeClose();
       return;
     }
-    const result = source === 'camera' ? await openCamera() : await openGallery();
-    if (result === 'canceled') {
-      safeClose();
+    for (;;) {
+      const result = source === 'camera' ? await openCamera() : await openGallery();
+      if (result !== 'canceled') break;
     }
   }, [source, openCamera, openGallery, safeClose]);
 
