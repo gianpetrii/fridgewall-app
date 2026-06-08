@@ -1,6 +1,6 @@
 "use client";
 import * as React from 'react';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, ActivityIndicator, Alert, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -86,7 +86,23 @@ function UploadModalContent() {
     [],
   );
 
+  const waitForActive = React.useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      if (AppState.currentState === 'active') {
+        resolve();
+        return;
+      }
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          sub.remove();
+          resolve();
+        }
+      });
+    });
+  }, []);
+
   const openCamera = React.useCallback(async (): Promise<'picked' | 'canceled' | 'denied'> => {
+    await waitForActive();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara.');
@@ -102,9 +118,10 @@ function UploadModalContent() {
     }
     goToEditor(result.assets[0].uri);
     return 'picked' as const;
-  }, [goToEditor, safeClose]);
+  }, [goToEditor, safeClose, waitForActive]);
 
   const openGallery = React.useCallback(async (): Promise<'picked' | 'canceled' | 'denied'> => {
+    await waitForActive();
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería.');
@@ -121,16 +138,24 @@ function UploadModalContent() {
     }
     goToEditor(result.assets[0].uri);
     return 'picked' as const;
-  }, [goToEditor, safeClose]);
+  }, [goToEditor, safeClose, waitForActive]);
 
   const launchPicker = React.useCallback(async () => {
     if (!source) {
       safeClose();
       return;
     }
+    // Wait for navigation animations to complete before presenting the native
+    // picker. iOS silently discards presentations from view controllers that
+    // are still mid-animation, causing launchCameraAsync to never resolve.
+    await new Promise((r) => setTimeout(r, 450));
     for (;;) {
-      const result = source === 'camera' ? await openCamera() : await openGallery();
-      if (result !== 'canceled') break;
+      try {
+        const result = source === 'camera' ? await openCamera() : await openGallery();
+        if (result !== 'canceled') break;
+      } catch {
+        break;
+      }
     }
   }, [source, openCamera, openGallery, safeClose]);
 
