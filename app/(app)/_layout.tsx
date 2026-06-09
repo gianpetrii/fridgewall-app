@@ -12,8 +12,10 @@ function NotificationNavigationHandler() {
 
   React.useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { groupId?: string };
-      if (data?.groupId) {
+      const data = response.notification.request.content.data as { groupId?: string; type?: string };
+      if (data?.type === 'upload_error') {
+        router.push('/upload-modal?retryFailed=1');
+      } else if (data?.groupId) {
         router.push('/(app)');
       }
     });
