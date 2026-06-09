@@ -1,11 +1,11 @@
 "use client";
 import * as React from 'react';
-import { View, ActivityIndicator, Alert, AppState } from 'react-native';
+import { View, ActivityIndicator, Alert, AppState, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Camera, Image as ImageIcon } from 'lucide-react-native';
+import { X, Camera, Image as ImageIcon, ChevronDown, Check } from 'lucide-react-native';
 import { Pressable } from 'react-native';
 import { ShellProviders } from '@/components/layout/ShellProviders';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { prependPhotoToPayload } from '@/widgets/buildPayload';
 import { WIDGET_DATA_KEY } from '@/widgets/widgetTaskHandler';
 import type { StoredWidgetData } from '@/widgets/types';
-import { saveWidgetData } from '@/widgets/updateWidget';
+import { saveWidgetData, saveWidgetDataForGroup } from '@/widgets/updateWidget';
 
 type Source = 'camera' | 'gallery';
 
@@ -63,14 +63,26 @@ function UploadModalContent() {
     fromEditor === '1' && editedUri ? editedUri : null,
   );
   const [launched, setLaunched] = React.useState(fromEditor === '1');
+  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = React.useState(false);
+  const chevronAnim = React.useRef(new Animated.Value(0)).current;
+  const dropdownAnim = React.useRef(new Animated.Value(0)).current;
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? groups[0] ?? null;
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? activeGroup;
 
   React.useEffect(() => {
     if (user && groups.length === 0) {
       fetchGroups(user.id);
     }
   }, [user]);
+
+  // Inicializa el grupo seleccionado cuando se cargan los grupos
+  React.useEffect(() => {
+    if (groups.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(activeGroupId ?? groups[0].id);
+    }
+  }, [groups, activeGroupId, selectedGroupId]);
 
   React.useEffect(() => {
     if (fromEditor === '1' && editedUri) {
@@ -173,6 +185,51 @@ function UploadModalContent() {
     }
   }, [launched, activeGroup, source, reopenPicker, fromEditor, launchPicker]);
 
+  const ITEM_HEIGHT = 52;
+
+  const chevronRotate = chevronAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  const dropdownMaxHeight = dropdownAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, groups.length * ITEM_HEIGHT],
+  });
+
+  const dropdownOpacity = dropdownAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  const animateDropdown = React.useCallback((open: boolean) => {
+    Animated.parallel([
+      Animated.timing(chevronAnim, {
+        toValue: open ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(dropdownAnim, {
+        toValue: open ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [chevronAnim, dropdownAnim]);
+
+  const togglePicker = React.useCallback(() => {
+    if (groups.length <= 1) return;
+    const willOpen = !isPickerOpen;
+    setIsPickerOpen(willOpen);
+    animateDropdown(willOpen);
+  }, [groups.length, isPickerOpen, animateDropdown]);
+
+  const selectGroup = React.useCallback((groupId: string) => {
+    setSelectedGroupId(groupId);
+    setIsPickerOpen(false);
+    animateDropdown(false);
+  }, [animateDropdown]);
+
   const handleCancelPublish = () => {
     if (fromWidget === '1') {
       returnToDeviceHome();
@@ -187,10 +244,10 @@ function UploadModalContent() {
   };
 
   const handleUpload = async () => {
-    if (!pendingUri || !activeGroup || !user) return;
+    if (!pendingUri || !selectedGroup || !user) return;
     try {
       const firebaseUrl = await uploadAndPost(
-        activeGroup.id,
+        selectedGroup.id,
         user.id,
         user.name,
         pendingUri,
@@ -203,18 +260,20 @@ function UploadModalContent() {
       } catch {
         existing = null;
       }
-      await saveWidgetData(
-        prependPhotoToPayload(
-          existing,
-          {
-            photoUrl: firebaseUrl,
-            localUri: pendingUri,
-            posterName: user.name,
-            createdAt: Date.now(),
-          },
-          activeGroup.name,
-        ),
+      const payload = prependPhotoToPayload(
+        existing,
+        {
+          photoUrl: firebaseUrl,
+          localUri: pendingUri,
+          posterName: user.name,
+          createdAt: Date.now(),
+        },
+        selectedGroup.name,
       );
+      await Promise.all([
+        saveWidgetData(payload),
+        saveWidgetDataForGroup(selectedGroup.id, payload),
+      ]);
       toast({ message: '¡Foto publicada! 🧲', variant: 'success' });
       await new Promise((resolve) => setTimeout(resolve, 800));
       returnToDeviceHome();
@@ -296,8 +355,46 @@ function UploadModalContent() {
         contentFit="cover"
       />
 
+      <View className="bg-muted rounded-2xl overflow-hidden mt-4">
+        <Pressable
+          onPress={togglePicker}
+          disabled={groups.length <= 1}
+          className="flex-row items-center justify-between px-4"
+          style={{ paddingVertical: 14 }}
+        >
+          <View>
+            <Text variant="small" className="text-muted-foreground mb-0.5">Publicar en</Text>
+            <Text className="font-semibold text-base">{selectedGroup?.name}</Text>
+          </View>
+          {groups.length > 1 && (
+            <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+              <ChevronDown size={18} color="#71717a" />
+            </Animated.View>
+          )}
+        </Pressable>
+
+        <Animated.View
+          style={{ maxHeight: dropdownMaxHeight, opacity: dropdownOpacity, overflow: 'hidden' }}
+        >
+          <View className="border-t border-border">
+            {groups.map((group, index) => (
+              <Pressable
+                key={group.id}
+                onPress={() => selectGroup(group.id)}
+                className={`flex-row items-center justify-between px-4 py-3${index < groups.length - 1 ? ' border-b border-border' : ''}`}
+              >
+                <Text className={group.id === selectedGroupId ? 'font-semibold' : 'text-foreground'}>
+                  {group.name}
+                </Text>
+                {group.id === selectedGroupId && <Check size={16} color="#71717a" />}
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+
       {isUploading && (
-        <View className="h-1 bg-muted rounded-full overflow-hidden mt-4">
+        <View className="h-1 bg-muted rounded-full overflow-hidden mt-3">
           <View
             className="h-full bg-primary rounded-full"
             style={{ width: `${uploadProgress}%` }}
@@ -305,13 +402,9 @@ function UploadModalContent() {
         </View>
       )}
 
-      <Button size="lg" className="mt-4" loading={isUploading} onPress={handleUpload}>
-        Publicar en la wall
+      <Button size="lg" className="mt-3" loading={isUploading} onPress={handleUpload}>
+        Publicar
       </Button>
-
-      <Text variant="small" className="text-muted-foreground text-center mt-2">
-        en {activeGroup.name}
-      </Text>
     </View>
   );
 }

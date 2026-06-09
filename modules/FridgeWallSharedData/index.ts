@@ -1,5 +1,5 @@
 import { requireNativeModule } from 'expo-modules-core';
-import type { StoredWidgetData } from '@/widgets/types';
+import type { StoredWidgetData, GroupInfo } from '@/widgets/types';
 
 interface SaveWidgetDataResult {
   photosSaved?: number;
@@ -9,6 +9,8 @@ interface SaveWidgetDataResult {
 
 interface NativeModule {
   saveWidgetData(json: string): Promise<SaveWidgetDataResult>;
+  saveWidgetDataForGroup(groupId: string, json: string): Promise<SaveWidgetDataResult>;
+  saveAllGroups(json: string): Promise<void>;
   advanceWidgetCarousel(): Promise<{ advanced: boolean; carouselIndex?: number }>;
   goToHomeScreen(): void;
 }
@@ -24,15 +26,38 @@ try {
 }
 
 export async function saveWidgetDataNative(data: StoredWidgetData): Promise<void> {
-  if (!nativeModule) return;
+  if (!nativeModule) {
+    console.warn('[Widget] nativeModule is null – skipping native save');
+    return;
+  }
 
-  saveQueue = saveQueue.then(async () => {
-    const result = await nativeModule!.saveWidgetData(JSON.stringify(data));
-    // #region agent log
-    fetch('http://127.0.0.1:7833/ingest/fd95910a-cb48-4683-9e51-9302b10846ef',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'46b5be'},body:JSON.stringify({sessionId:'46b5be',location:'modules/FridgeWallSharedData/index.ts',message:'native saveWidgetData result',data:result,timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-  });
+  const task = async () => {
+    try {
+      const result = await nativeModule!.saveWidgetData(JSON.stringify(data));
+      console.log('[Widget] saveWidgetData native OK', JSON.stringify(result));
+    } catch (e) {
+      console.error('[Widget] saveWidgetData native ERROR', String(e));
+      throw e;
+    }
+  };
+  // .then(task, task) ensures task runs regardless of previous queue state,
+  // preventing a single failed save from permanently breaking the queue.
+  saveQueue = saveQueue.then(task, task);
   await saveQueue;
+}
+
+export async function saveWidgetDataForGroupNative(groupId: string, data: StoredWidgetData): Promise<void> {
+  if (!nativeModule) return;
+  const task = async () => {
+    await nativeModule!.saveWidgetDataForGroup(groupId, JSON.stringify(data));
+  };
+  saveQueue = saveQueue.then(task, task);
+  await saveQueue;
+}
+
+export async function saveAllGroupsNative(groups: GroupInfo[]): Promise<void> {
+  if (!nativeModule) return;
+  await nativeModule.saveAllGroups(JSON.stringify(groups));
 }
 
 export async function advanceWidgetCarouselNative(): Promise<void> {
