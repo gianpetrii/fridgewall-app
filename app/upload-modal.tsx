@@ -199,15 +199,17 @@ function UploadModalContent() {
     // picker. iOS silently discards presentations from view controllers that
     // are still mid-animation, causing launchCameraAsync to never resolve.
     await new Promise((r) => setTimeout(r, 450));
-    for (;;) {
-      try {
-        const result = source === 'camera' ? await openCamera() : await openGallery();
-        if (result !== 'canceled') break;
-      } catch {
-        break;
+    try {
+      const result = source === 'camera' ? await openCamera() : await openGallery();
+      if (result === 'canceled') {
+        // Volver al selector en vez de re-abrir el mismo picker
+        const widgetParam = fromWidget === '1' ? '?fromWidget=1' : '';
+        router.replace(`/upload-modal${widgetParam}`);
       }
+    } catch {
+      safeClose();
     }
-  }, [source, openCamera, openGallery, safeClose]);
+  }, [source, openCamera, openGallery, safeClose, router, fromWidget]);
 
   React.useEffect(() => {
     if (!activeGroup || !source) return;
@@ -279,8 +281,8 @@ function UploadModalContent() {
       return;
     }
     if (source) {
-      setLaunched(false);
-      setPendingUri(null);
+      // Volver al selector de fuente en vez de re-abrir el mismo picker
+      router.replace(`/upload-modal${fromWidget === '1' ? '?fromWidget=1' : ''}`);
       return;
     }
     safeClose();

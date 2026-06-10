@@ -220,7 +220,7 @@ export default function GroupsScreen() {
             </Button>
             <Button size="sm" onPress={() => setModal('create')}>
               <Plus size={14} />
-              <Text variant="small" className="ml-1 text-primary-foreground">Nuevo</Text>
+              <Text variant="small" className="ml-1 text-primary-foreground">Crear</Text>
             </Button>
           </View>
         </View>

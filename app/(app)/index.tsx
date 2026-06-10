@@ -2,7 +2,9 @@ import * as React from 'react';
 import { View, FlatList, Pressable, ActivityIndicator, Share, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Users, Copy, Share2, Hash, ChevronRight, Trash2, LogOut } from 'lucide-react-native';
+import { Users, Copy, Share2, Hash, ChevronRight, Trash2, LogOut, Camera } from 'lucide-react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/colors';
 import { Screen } from '@/components/layout/Screen';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
@@ -128,6 +130,8 @@ function GroupCard({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { resolvedScheme } = useColorScheme();
+  const colors = Colors[resolvedScheme];
   const { user } = useAuthStore();
   const { groups, isLoading: groupsLoading, fetchGroups, removeGroup, leaveGroup } = useGroupsStore();
   const { toast } = useToast();
@@ -261,11 +265,12 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
-          className="flex-row items-center justify-between px-4 py-3 rounded-xl bg-muted"
-          onPress={() => router.push('/(app)/groups')}
+          className="flex-row items-center gap-3 px-4 py-3.5 rounded-xl bg-primary"
+          onPress={() => router.push('/upload-modal')}
         >
-          <Text className="font-medium">{copy.createOrJoin}</Text>
-          <ChevronRight size={18} color="#71717a" />
+          <Camera size={20} color={colors.primaryForeground} />
+          <Text className="font-semibold text-primary-foreground flex-1">Publicar foto</Text>
+          <ChevronRight size={16} color={colors.primaryForeground} />
         </Pressable>
 
         {isLoading ? (
