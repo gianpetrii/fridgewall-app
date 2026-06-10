@@ -16,6 +16,8 @@ export const deleteExpiredPosts = onSchedule('every 1 hours', async () => {
 
   const groupsSnap = await db.collection('groups').get();
 
+  let totalDeleted = 0;
+
   const deletePromises = groupsSnap.docs.map(async (groupDoc) => {
     const expiredSnap = await db
       .collection('groups')
@@ -24,7 +26,9 @@ export const deleteExpiredPosts = onSchedule('every 1 hours', async () => {
       .where('expiresAt', '<', now)
       .get();
 
-    return Promise.all(
+    if (expiredSnap.empty) return;
+
+    await Promise.all(
       expiredSnap.docs.map(async (postDoc) => {
         const post = postDoc.data();
 
@@ -48,10 +52,12 @@ export const deleteExpiredPosts = onSchedule('every 1 hours', async () => {
             // El archivo ya puede no existir
           }
         }
+
+        totalDeleted++;
       }),
     );
   });
 
   await Promise.all(deletePromises);
-  console.log(`Limpieza completada a las ${new Date().toISOString()}`);
+  console.log(`[deleteExpiredPosts] ${new Date().toISOString()} — ${totalDeleted} post(s) eliminados`);
 });
