@@ -1,6 +1,6 @@
 "use client";
 import * as React from 'react';
-import { View, ActivityIndicator, Alert, AppState, Animated } from 'react-native';
+import { View, Alert, AppState, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -395,24 +395,11 @@ function UploadModalContent() {
   }
 
   if (!activeGroup || !launched) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <View className="flex-1 bg-background" />;
   }
 
   if (!pendingUri) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center px-6">
-        <ActivityIndicator size="large" />
-        {source ? (
-          <Pressable onPress={safeClose} className="mt-6 py-2 px-4">
-            <Text variant="muted">Salir</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
+    return <View className="flex-1 bg-background" />;
   }
 
 
