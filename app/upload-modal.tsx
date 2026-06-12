@@ -131,9 +131,16 @@ function UploadModalContent() {
 
   const goToEditor = React.useCallback(
     (uri: string) => {
-      setPendingUri(uri);
+      router.push({
+        pathname: '/photo-editor',
+        params: {
+          uri,
+          ...(source ? { source } : {}),
+          ...(fromWidget === '1' ? { fromWidget: '1' } : {}),
+        },
+      });
     },
-    [],
+    [router, source, fromWidget],
   );
 
   const waitForActive = React.useCallback((): Promise<void> => {
