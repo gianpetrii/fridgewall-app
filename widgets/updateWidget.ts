@@ -32,13 +32,15 @@ export async function saveWidgetData(data: StoredWidgetData): Promise<void> {
 }
 
 export async function saveWidgetDataForGroup(groupId: string, data: StoredWidgetData): Promise<void> {
+  console.log('[Widget] saveWidgetDataForGroup called, groupId:', groupId, 'photos:', data.photos?.length ?? 0);
   try {
     await AsyncStorage.setItem(`${WIDGET_DATA_KEY}_${groupId}`, JSON.stringify(data));
     if (Platform.OS === 'ios') {
-      await saveWidgetDataForGroupNative(groupId, data);
+      const result = await saveWidgetDataForGroupNative(groupId, data);
+      console.log('[Widget] saveWidgetDataForGroup native OK', JSON.stringify(result));
     }
-  } catch {
-    // silently fail
+  } catch (e) {
+    console.error('[Widget] saveWidgetDataForGroup ERROR', String(e));
   }
 }
 

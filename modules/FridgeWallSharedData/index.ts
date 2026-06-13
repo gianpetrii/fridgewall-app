@@ -46,13 +46,15 @@ export async function saveWidgetDataNative(data: StoredWidgetData): Promise<void
   await saveQueue;
 }
 
-export async function saveWidgetDataForGroupNative(groupId: string, data: StoredWidgetData): Promise<void> {
-  if (!nativeModule) return;
+export async function saveWidgetDataForGroupNative(groupId: string, data: StoredWidgetData): Promise<NativeSaveResult | undefined> {
+  if (!nativeModule) return undefined;
+  let result: NativeSaveResult | undefined;
   const task = async () => {
-    await nativeModule!.saveWidgetDataForGroup(groupId, JSON.stringify(data));
+    result = await nativeModule!.saveWidgetDataForGroup(groupId, JSON.stringify(data));
   };
   saveQueue = saveQueue.then(task, task);
   await saveQueue;
+  return result;
 }
 
 /**

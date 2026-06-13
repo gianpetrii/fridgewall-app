@@ -176,6 +176,28 @@ struct Provider: TimelineProvider {
     }
 }
 
+// MARK: - Live data reader (lee de UserDefaults en tiempo real, no del timeline entry)
+
+private func loadLiveData() -> WidgetData {
+    let defaults = UserDefaults(suiteName: appGroupId)
+    // Intenta leer del grupo seleccionado
+    if let gid = defaults?.string(forKey: selectedWallKey) {
+        let groupKey = "fridgewall_widget_data_\(gid)"
+        if let json = defaults?.string(forKey: groupKey),
+           let bytes = json.data(using: .utf8),
+           let data = try? JSONDecoder().decode(WidgetData.self, from: bytes) {
+            return data
+        }
+    }
+    // Fallback al dato global
+    if let json = defaults?.string(forKey: widgetDataKey),
+       let bytes = json.data(using: .utf8),
+       let data = try? JSONDecoder().decode(WidgetData.self, from: bytes) {
+        return data
+    }
+    return WidgetData()
+}
+
 // MARK: - Photo background
 
 struct WidgetPhotoBackground: View {
@@ -310,9 +332,11 @@ struct FridgeWallWidgetView: View {
     var uploadURL: URL { URL(string: "fridgewall://upload")! }
     var selectWallURL: URL { URL(string: "fridgewall://select-wall")! }
 
-    private var active: WidgetPhotoItem? { activePhoto(from: entry.data) }
-    private var showPhoto: Bool { hasPhoto(data: entry.data) }
-    private var multiWall: Bool { entry.wallCount > 1 }
+    // Usa datos live de UserDefaults en lugar del entry del timeline (que puede estar stale)
+    private var liveData: WidgetData { loadLiveData() }
+    private var active: WidgetPhotoItem? { activePhoto(from: liveData) }
+    private var showPhoto: Bool { hasPhoto(data: liveData) }
+    private var multiWall: Bool { loadWallsList().count > 1 }
 
     var body: some View {
         if family == .systemLarge {
@@ -325,14 +349,14 @@ struct FridgeWallWidgetView: View {
     @ViewBuilder
     private var largeBody: some View {
         ZStack(alignment: .bottom) {
-            let hasSlots = !(entry.data.memberSlots?.isEmpty ?? true)
+            let hasSlots = !(liveData.memberSlots?.isEmpty ?? true)
             if !hasSlots && !showPhoto {
                 emptyState
             }
 
-            if entry.data.groupName != nil {
+            if liveData.groupName != nil {
                 LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
-                Text(entry.data.groupName ?? "FridgeWall")
+                Text(liveData.groupName ?? "FridgeWall")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(8)
@@ -365,7 +389,7 @@ struct FridgeWallWidgetView: View {
 
                     HStack(alignment: .bottom) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(entry.data.groupName ?? "FridgeWall")
+                            Text(liveData.groupName ?? "FridgeWall")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)
                             if let name = active?.posterName {
@@ -407,7 +431,7 @@ struct FridgeWallWidgetView: View {
 
     private var widgetTapURL: URL? {
         if family == .systemSmall { return uploadURL }
-        let photos = resolvedPhotos(from: entry.data)
+        let photos = resolvedPhotos(from: liveData)
         if photos.count > 1 { return nextPhotoURL }
         return galleryURL
     }
@@ -419,24 +443,17 @@ struct FridgeWallWidgetView: View {
     }
 
     /// Botones cámara + galería + (si multiwall) botón de cambiar wall
-    /// DEBUG: muestra info del App Group — eliminar una vez validado
+    /// DEBUG: muestra live vs entry — eliminar una vez validado
     private var debugBadge: some View {
-        let defaults = UserDefaults(suiteName: appGroupId)
-        let rawGroups = defaults?.string(forKey: allGroupsKey)
-        let label: String
-        if defaults == nil {
-            label = "AG:NIL"
-        } else if rawGroups == nil {
-            label = "AG:OK-EMPTY"
-        } else {
-            label = "AG:OK-DATA"
-        }
+        let livePhotos = loadLiveData().photos?.count ?? 0
+        let entryPhotos = entry.data.photos?.count ?? 0
+        let label = "live:\(livePhotos)|entry:\(entryPhotos)"
         return Text(verbatim: label)
-            .font(.system(size: 10, weight: .heavy))
+            .font(.system(size: 8, weight: .bold).monospaced())
             .foregroundColor(.black)
-            .padding(.horizontal, 5).padding(.vertical, 3)
+            .padding(.horizontal, 4).padding(.vertical, 2)
             .background(Color.yellow)
-            .cornerRadius(6)
+            .cornerRadius(4)
             .unredacted()
     }
 
@@ -505,18 +522,20 @@ struct FridgeWallWidgetView: View {
 // MARK: - Container background
 
 struct WidgetContainerBackground: View {
-    let data: WidgetData
     @Environment(\.widgetFamily) var family
+    
+    // Lee datos live de UserDefaults
+    private var liveData: WidgetData { loadLiveData() }
 
     var body: some View {
         if family == .systemLarge {
-            if let slots = data.memberSlots, !slots.isEmpty {
+            if let slots = liveData.memberSlots, !slots.isEmpty {
                 MosaicWidgetView(slots: slots)
             } else {
-                WidgetPhotoBackground(photo: activePhoto(from: data))
+                WidgetPhotoBackground(photo: activePhoto(from: liveData))
             }
         } else {
-            WidgetPhotoBackground(photo: activePhoto(from: data))
+            WidgetPhotoBackground(photo: activePhoto(from: liveData))
         }
     }
 }
@@ -531,11 +550,11 @@ struct FridgeWallWidget: Widget {
             if #available(iOS 17.0, *) {
                 FridgeWallWidgetView(entry: entry)
                     .containerBackground(for: .widget) {
-                        WidgetContainerBackground(data: entry.data)
+                        WidgetContainerBackground()
                     }
             } else {
                 ZStack {
-                    WidgetContainerBackground(data: entry.data)
+                    WidgetContainerBackground()
                     FridgeWallWidgetView(entry: entry)
                 }
             }
