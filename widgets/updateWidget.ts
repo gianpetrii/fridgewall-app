@@ -72,6 +72,7 @@ export async function saveWidgetDataForGroupDirect(
 }
 
 export async function saveGroupsList(groups: GroupInfo[]): Promise<void> {
+  console.log('[Widget] saveGroupsList groups:', groups.length, groups.map((g) => g.name).join(', '));
   if (Platform.OS === 'ios') {
     await saveAllGroupsNative(groups);
   }

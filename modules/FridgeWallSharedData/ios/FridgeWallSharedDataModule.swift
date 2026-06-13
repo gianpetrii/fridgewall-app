@@ -5,6 +5,7 @@ import WidgetKit
 private let appGroupId = "group.com.fridgewall.app"
 private let widgetDataKey = "fridgewall_widget_data"
 private let allGroupsKey = "fridgewall_all_groups"
+private let selectedWallKey = "fridgewall_selected_wall_id"
 private let legacyPhotoFilename = "widget_photo.jpg"
 
 public class FridgeWallSharedDataModule: Module {
@@ -23,6 +24,9 @@ public class FridgeWallSharedDataModule: Module {
       let defaults = UserDefaults(suiteName: appGroupId)
       defaults?.set(jsonString, forKey: allGroupsKey)
       defaults?.synchronize()
+      if #available(iOS 14.0, *) {
+        WidgetCenter.shared.reloadTimelines(ofKind: "FridgeWallWidget")
+      }
     }
 
     AsyncFunction("advanceWidgetCarousel") { () async throws -> [String: Any] in
@@ -137,9 +141,16 @@ public class FridgeWallSharedDataModule: Module {
     }
     try persistAndReload(json: json, key: dataKey)
 
-    // Si es un guardado por grupo, también actualiza la lista de grupos como fallback
+    // Si es un guardado por grupo, actualiza la lista de grupos como fallback
+    // y establece el wall seleccionado inicial si no hay ninguno guardado
     if let gid = groupId, let name = json["groupName"] as? String {
       updateGroupsList(groupId: gid, groupName: name)
+      // Primera vez: inicializa selectedWallKey al wall que llega (el activo en la app)
+      let defaults = UserDefaults(suiteName: appGroupId)
+      if defaults?.string(forKey: selectedWallKey) == nil {
+        defaults?.set(gid, forKey: selectedWallKey)
+        defaults?.synchronize()
+      }
     }
 
     result["hasRemotePhotos"] = hasRemotePhotos

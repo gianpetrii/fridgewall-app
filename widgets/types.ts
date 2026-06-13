@@ -15,6 +15,11 @@ export interface WidgetMemberSlot {
   localUri?: string;
 }
 
+export interface GroupInfo {
+  id: string;
+  name: string;
+}
+
 export interface StoredWidgetData {
   groupName?: string;
   photos?: WidgetPhotoItem[];

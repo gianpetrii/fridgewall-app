@@ -51,6 +51,8 @@ function DeepLinkHandler() {
         void advanceWidgetCarousel().then(() => {
           returnToDeviceHome();
         });
+      } else if (url.includes('select-wall')) {
+        router.push('/select-wall?fromWidget=1');
       } else if (url.includes('camera')) {
         router.push('/upload-modal?source=camera&fromWidget=1');
       } else if (url.includes('gallery')) {
@@ -111,6 +113,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={authStackScreenOptions} />
           <Stack.Screen name="(app)" options={appStackScreenOptions} />
           <Stack.Screen name="upload-modal" options={modalScreenOptions} />
+          <Stack.Screen name="select-wall" options={modalScreenOptions} />
           <Stack.Screen name="photo-editor" options={modalScreenOptions} />
           <Stack.Screen name="camera" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'none' }} />
