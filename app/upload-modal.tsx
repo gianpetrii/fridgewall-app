@@ -19,7 +19,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { prependPhotoToPayload } from '@/widgets/buildPayload';
 import { WIDGET_DATA_KEY } from '@/widgets/widgetTaskHandler';
 import type { StoredWidgetData } from '@/widgets/types';
-import { saveWidgetData, saveWidgetDataForGroup } from '@/widgets/updateWidget';
+import {
+  saveWidgetDataDirect,
+  saveWidgetDataForGroupDirect,
+  saveGroupsList,
+} from '@/widgets/updateWidget';
 
 const FAILED_UPLOAD_KEY = 'fridgewall_failed_upload';
 
@@ -61,11 +65,10 @@ function UploadModalContent() {
       returnToDeviceHome();
       return;
     }
-    if (router.canGoBack()) {
-      router.dismiss();
-    } else {
-      router.replace('/(app)');
-    }
+    // Siempre navegar al home directamente para limpiar el stack de modales
+    // (upload-modal → photo-editor → upload-modal genera un stack con varias
+    // instancias que router.dismiss() no limpia del todo)
+    router.replace('/(app)');
   }, [router, fromWidget, retryFailed]);
 
   const insets = useSafeAreaInsets();
@@ -101,6 +104,13 @@ function UploadModalContent() {
       setSelectedGroupId(activeGroupId ?? groups[0].id);
     }
   }, [groups, activeGroupId, selectedGroupId]);
+
+  // Sincroniza la lista de grupos para la configuración del widget (necesario en el
+  // flujo de deep link desde el widget, donde (app)/_layout.tsx no está montado)
+  React.useEffect(() => {
+    if (groups.length === 0) return;
+    void saveGroupsList(groups.map((g) => ({ id: g.id, name: g.name })));
+  }, [groups]);
 
   React.useEffect(() => {
     if (fromEditor === '1' && editedUri) {
@@ -308,32 +318,42 @@ function UploadModalContent() {
     try {
       const firebaseUrl = await uploadAndPost(group.id, poster.id, poster.name, uri, undefined);
 
-      // Widget save en background: el módulo nativo descarga imágenes al App Group,
-      // lo cual tarda varios segundos. No bloqueamos al usuario — si falla,
-      // useWidgetSync sincroniza en el próximo arranque de la app.
-      void (async () => {
-        try {
-          let existing: StoredWidgetData | null = null;
-          try {
-            const raw = await AsyncStorage.getItem(WIDGET_DATA_KEY);
-            if (raw) existing = JSON.parse(raw) as StoredWidgetData;
-          } catch {
-            existing = null;
-          }
-          const payload = prependPhotoToPayload(
-            existing,
-            { photoUrl: firebaseUrl, localUri: uri, posterName: poster.name, createdAt: Date.now() },
-            group.name,
-          );
-          await Promise.all([saveWidgetData(payload), saveWidgetDataForGroup(group.id, payload)]);
-        } catch {
-          // Fallo silencioso: useWidgetSync lo resincronizará
-        }
-      })();
+      // Construir payload del widget (incluye localUri para copia de archivo rápida)
+      let existing: StoredWidgetData | null = null;
+      try {
+        const raw = await AsyncStorage.getItem(WIDGET_DATA_KEY);
+        if (raw) existing = JSON.parse(raw) as StoredWidgetData;
+      } catch {
+        existing = null;
+      }
+      const payload = prependPhotoToPayload(
+        existing,
+        { photoUrl: firebaseUrl, localUri: uri, posterName: poster.name, createdAt: Date.now() },
+        group.name,
+      );
 
       await AsyncStorage.removeItem(FAILED_UPLOAD_KEY);
       setUploadPhase('done');
-      await new Promise((r) => setTimeout(r, 1500));
+
+      // Ejecutar el widget save (directo, sin queue) y el timer de "done" en paralelo.
+      // La copia de archivo local tarda < 300ms, así que siempre completa antes del cierre.
+      await Promise.all([
+        (async () => {
+          try {
+            await Promise.race([
+              Promise.all([
+                saveWidgetDataDirect(payload),
+                saveWidgetDataForGroupDirect(group.id, payload),
+              ]),
+              new Promise<void>((r) => setTimeout(r, 2500)), // timeout de seguridad
+            ]);
+          } catch {
+            // silencioso
+          }
+        })(),
+        new Promise<void>((r) => setTimeout(r, 1500)), // mensaje de éxito por 1.5s
+      ]);
+
       safeClose();
     } catch {
       setIsSubmitting(false);

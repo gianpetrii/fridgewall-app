@@ -55,6 +55,32 @@ export async function saveWidgetDataForGroupNative(groupId: string, data: Stored
   await saveQueue;
 }
 
+/**
+ * Guardado directo sin pasar por la saveQueue. Usar solo desde handleUpload
+ * para garantizar que el save ocurre antes de suspender/cerrar la app.
+ */
+export async function saveWidgetDataNativeDirect(data: StoredWidgetData): Promise<void> {
+  if (!nativeModule) return;
+  try {
+    const result = await nativeModule.saveWidgetData(JSON.stringify(data));
+    console.log('[Widget] saveWidgetData direct OK', JSON.stringify(result));
+  } catch (e) {
+    console.error('[Widget] saveWidgetData direct ERROR', String(e));
+  }
+}
+
+export async function saveWidgetDataForGroupNativeDirect(
+  groupId: string,
+  data: StoredWidgetData,
+): Promise<void> {
+  if (!nativeModule) return;
+  try {
+    await nativeModule.saveWidgetDataForGroup(groupId, JSON.stringify(data));
+  } catch {
+    // silent
+  }
+}
+
 export async function saveAllGroupsNative(groups: GroupInfo[]): Promise<void> {
   if (!nativeModule) return;
   await nativeModule.saveAllGroups(JSON.stringify(groups));

@@ -5,6 +5,8 @@ import type { StoredWidgetData, GroupInfo } from './types';
 import {
   saveWidgetDataNative,
   saveWidgetDataForGroupNative,
+  saveWidgetDataNativeDirect,
+  saveWidgetDataForGroupNativeDirect,
   saveAllGroupsNative,
   advanceWidgetCarouselNative,
 } from '@/modules/FridgeWallSharedData';
@@ -37,6 +39,35 @@ export async function saveWidgetDataForGroup(groupId: string, data: StoredWidget
     }
   } catch {
     // silently fail
+  }
+}
+
+/**
+ * Guardado directo sin pasar por la saveQueue. Usar después de uploads para
+ * garantizar que el widget se actualiza antes de suspender/cerrar la app.
+ */
+export async function saveWidgetDataDirect(data: StoredWidgetData): Promise<void> {
+  try {
+    await AsyncStorage.setItem(WIDGET_DATA_KEY, JSON.stringify(data));
+    if (Platform.OS === 'ios') {
+      await saveWidgetDataNativeDirect(data);
+    }
+  } catch (e) {
+    console.error('[Widget] saveWidgetDataDirect FAILED', String(e));
+  }
+}
+
+export async function saveWidgetDataForGroupDirect(
+  groupId: string,
+  data: StoredWidgetData,
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${WIDGET_DATA_KEY}_${groupId}`, JSON.stringify(data));
+    if (Platform.OS === 'ios') {
+      await saveWidgetDataForGroupNativeDirect(groupId, data);
+    }
+  } catch {
+    // silent
   }
 }
 
