@@ -35,49 +35,55 @@ private let appGroupId = "group.com.fridgewall.app"
 private let carouselIntervalSec = 8
 private let widgetDataKey = "fridgewall_widget_data"
 private let allGroupsKey = "fridgewall_all_groups"
-private let selectedWallKey = "fridgewall_selected_wall_id"
 
-// MARK: - Wall list helper
+// MARK: - Wall selection configuration (AppIntentConfiguration)
 
-private struct WallInfo {
+struct WallEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Wall"
+    static var defaultQuery = WallQuery()
+
     var id: String
     var name: String
-}
 
-private func loadWallsList() -> [WallInfo] {
-    guard
-        let defaults = UserDefaults(suiteName: appGroupId),
-        let json = defaults.string(forKey: allGroupsKey),
-        let data = json.data(using: .utf8),
-        let groups = try? JSONDecoder().decode([[String: String]].self, from: data)
-    else { return [] }
-    return groups.compactMap { dict in
-        guard let id = dict["id"], let name = dict["name"] else { return nil }
-        return WallInfo(id: id, name: name)
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)")
     }
 }
 
-// MARK: - Select next wall intent (funciona en iOS 16+, botón interactivo en iOS 17+)
-
-struct SelectNextWallIntent: AppIntent {
-    static var title: LocalizedStringResource = "Cambiar wall"
-    static var description = IntentDescription("Cambia al próximo wall disponible")
-
-    func perform() async throws -> some IntentResult {
-        guard let defaults = UserDefaults(suiteName: appGroupId) else {
-            return .result()
+struct WallQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [WallEntity] {
+        loadWalls().filter { identifiers.contains($0.id) }
+    }
+    
+    func suggestedEntities() async throws -> [WallEntity] {
+        loadWalls()
+    }
+    
+    func defaultResult() async -> WallEntity? {
+        loadWalls().first
+    }
+    
+    private func loadWalls() -> [WallEntity] {
+        guard
+            let defaults = UserDefaults(suiteName: appGroupId),
+            let json = defaults.string(forKey: allGroupsKey),
+            let data = json.data(using: .utf8),
+            let groups = try? JSONDecoder().decode([[String: String]].self, from: data),
+            !groups.isEmpty
+        else { return [] }
+        return groups.compactMap { dict in
+            guard let id = dict["id"], let name = dict["name"] else { return nil }
+            return WallEntity(id: id, name: name)
         }
-        let walls = loadWallsList()
-        guard walls.count > 1 else { return .result() }
-
-        let currentId = defaults.string(forKey: selectedWallKey) ?? walls[0].id
-        let currentIndex = walls.firstIndex(where: { $0.id == currentId }) ?? 0
-        let nextIndex = (currentIndex + 1) % walls.count
-
-        defaults.set(walls[nextIndex].id, forKey: selectedWallKey)
-        defaults.synchronize()
-        return .result()
     }
+}
+
+struct WallSelectionIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Seleccionar Wall"
+    static var description = IntentDescription("Elegí qué wall mostrar en este widget")
+
+    @Parameter(title: "Wall")
+    var wall: WallEntity?
 }
 
 // MARK: - Image helpers
@@ -115,73 +121,12 @@ private func hasPhoto(data: WidgetData) -> Bool {
     return photo.photoLocalName != nil || photo.photoUrl != nil
 }
 
-// MARK: - Timeline
+// MARK: - Data loading
 
-struct FridgeWallEntry: TimelineEntry {
-    let date: Date
-    let data: WidgetData
-    /// Cantidad de walls disponibles (para mostrar/ocultar el botón de cambio)
-    let wallCount: Int
-}
-
-struct Provider: TimelineProvider {
-    func placeholder(in context: Context) -> FridgeWallEntry {
-        FridgeWallEntry(date: Date(), data: WidgetData(groupName: "Mi familia"), wallCount: 1)
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (FridgeWallEntry) -> Void) {
-        completion(FridgeWallEntry(date: Date(), data: loadData(), wallCount: loadWallsList().count))
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FridgeWallEntry>) -> Void) {
-        let base = loadData()
-        let wallCount = loadWallsList().count
-        let photos = resolvedPhotos(from: base)
-        let now = Date()
-
-        if photos.count > 1 && context.family != .systemLarge {
-            var entries: [FridgeWallEntry] = []
-            for (index, _) in photos.enumerated() {
-                var entryData = base
-                entryData.carouselIndex = index
-                let date = Calendar.current.date(byAdding: .second, value: index * carouselIntervalSec, to: now)!
-                entries.append(FridgeWallEntry(date: date, data: entryData, wallCount: wallCount))
-            }
-            let reload = Calendar.current.date(byAdding: .second, value: photos.count * carouselIntervalSec, to: now)!
-            completion(Timeline(entries: entries, policy: .after(reload)))
-        } else {
-            let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
-            completion(Timeline(entries: [FridgeWallEntry(date: now, data: base, wallCount: wallCount)], policy: .after(next)))
-        }
-    }
-
-    private func loadData() -> WidgetData {
-        let defaults = UserDefaults(suiteName: appGroupId)
-        // Usa el wall seleccionado por el usuario (via botón del widget)
-        if let gid = defaults?.string(forKey: selectedWallKey) {
-            let groupKey = "fridgewall_widget_data_\(gid)"
-            if let json = defaults?.string(forKey: groupKey),
-               let bytes = json.data(using: .utf8),
-               let data = try? JSONDecoder().decode(WidgetData.self, from: bytes) {
-                return data
-            }
-        }
-        // Fallback al dato global (último wall sincronizado)
-        guard
-            let json = defaults?.string(forKey: widgetDataKey),
-            let bytes = json.data(using: .utf8),
-            let data = try? JSONDecoder().decode(WidgetData.self, from: bytes)
-        else { return WidgetData() }
-        return data
-    }
-}
-
-// MARK: - Live data reader (lee de UserDefaults en tiempo real, no del timeline entry)
-
-private func loadLiveData() -> WidgetData {
+private func loadData(for wallId: String?) -> WidgetData {
     let defaults = UserDefaults(suiteName: appGroupId)
-    // Intenta leer del grupo seleccionado
-    if let gid = defaults?.string(forKey: selectedWallKey) {
+    // Si hay wall configurado, cargar datos de ese wall
+    if let gid = wallId {
         let groupKey = "fridgewall_widget_data_\(gid)"
         if let json = defaults?.string(forKey: groupKey),
            let bytes = json.data(using: .utf8),
@@ -196,6 +141,47 @@ private func loadLiveData() -> WidgetData {
         return data
     }
     return WidgetData()
+}
+
+// MARK: - Timeline
+
+struct FridgeWallEntry: TimelineEntry {
+    let date: Date
+    let data: WidgetData
+    let wallId: String?
+}
+
+struct Provider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> FridgeWallEntry {
+        FridgeWallEntry(date: Date(), data: WidgetData(groupName: "Mi familia"), wallId: nil)
+    }
+
+    func snapshot(for configuration: WallSelectionIntent, in context: Context) async -> FridgeWallEntry {
+        let wallId = configuration.wall?.id
+        return FridgeWallEntry(date: Date(), data: loadData(for: wallId), wallId: wallId)
+    }
+
+    func timeline(for configuration: WallSelectionIntent, in context: Context) async -> Timeline<FridgeWallEntry> {
+        let wallId = configuration.wall?.id
+        let base = loadData(for: wallId)
+        let photos = resolvedPhotos(from: base)
+        let now = Date()
+
+        if photos.count > 1 && context.family != .systemLarge {
+            var entries: [FridgeWallEntry] = []
+            for (index, _) in photos.enumerated() {
+                var entryData = base
+                entryData.carouselIndex = index
+                let date = Calendar.current.date(byAdding: .second, value: index * carouselIntervalSec, to: now)!
+                entries.append(FridgeWallEntry(date: date, data: entryData, wallId: wallId))
+            }
+            let reload = Calendar.current.date(byAdding: .second, value: photos.count * carouselIntervalSec, to: now)!
+            return Timeline(entries: entries, policy: .after(reload))
+        } else {
+            let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
+            return Timeline(entries: [FridgeWallEntry(date: now, data: base, wallId: wallId)], policy: .after(next))
+        }
+    }
 }
 
 // MARK: - Image resizing for widget memory limits
@@ -215,8 +201,10 @@ private func resizeImage(_ image: UIImage, maxSize: CGFloat = 800) -> UIImage {
 // MARK: - Photo background
 
 struct WidgetPhotoBackground: View {
+    let wallId: String?
+    
     private var photo: WidgetPhotoItem? {
-        activePhoto(from: loadLiveData())
+        activePhoto(from: loadData(for: wallId))
     }
 
     var body: some View {
@@ -346,13 +334,10 @@ struct FridgeWallWidgetView: View {
     var galleryURL: URL { URL(string: "fridgewall://gallery")! }
     var nextPhotoURL: URL { URL(string: "fridgewall://widget-next")! }
     var uploadURL: URL { URL(string: "fridgewall://upload")! }
-    var selectWallURL: URL { URL(string: "fridgewall://select-wall")! }
 
-    // Usa datos live de UserDefaults en lugar del entry del timeline (que puede estar stale)
-    private var liveData: WidgetData { loadLiveData() }
+    private var liveData: WidgetData { loadData(for: entry.wallId) }
     private var active: WidgetPhotoItem? { activePhoto(from: liveData) }
     private var showPhoto: Bool { hasPhoto(data: liveData) }
-    private var multiWall: Bool { loadWallsList().count > 1 }
 
     var body: some View {
         if family == .systemLarge {
@@ -375,13 +360,13 @@ struct FridgeWallWidgetView: View {
                 Text(liveData.groupName ?? "FridgeWall")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(8)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .overlay(alignment: .topTrailing) {
             actionButtons
-                .unredacted()
         }
         .widgetURL(galleryURL)
     }
@@ -421,7 +406,7 @@ struct FridgeWallWidgetView: View {
                                 .foregroundColor(.white.opacity(0.55))
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 10)
                     .padding(.bottom, 10)
                 }
             }
@@ -429,7 +414,7 @@ struct FridgeWallWidgetView: View {
         .overlay(alignment: .topTrailing) {
             if family == .systemSmall {
                 smallActions
-                    .padding(8)
+                    .padding(10)
             } else {
                 actionButtons
             }
@@ -444,30 +429,16 @@ struct FridgeWallWidgetView: View {
         return galleryURL
     }
 
-    /// Botón de cámara solo para widget pequeño (sin texto, tap = abrir cámara/galería)
     @ViewBuilder
     private var smallActions: some View {
-        iconButton(icon: "camera.fill")
+        Link(destination: cameraURL) {
+            iconButton(icon: "camera.fill")
+        }
     }
 
-    /// Botones cámara + galería + (si multiwall) botón de cambiar wall
     @ViewBuilder
     private var actionButtons: some View {
         HStack(spacing: 6) {
-            if multiWall {
-                // iOS 17+: botón interactivo nativo (no abre la app)
-                if #available(iOS 17.0, *) {
-                    Button(intent: SelectNextWallIntent()) {
-                        iconButton(icon: "arrow.2.circlepath")
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    // iOS 16: abre la app para seleccionar wall
-                    Link(destination: selectWallURL) {
-                        iconButton(icon: "arrow.2.circlepath")
-                    }
-                }
-            }
             Link(destination: cameraURL) {
                 iconButton(icon: "camera.fill")
             }
@@ -516,20 +487,20 @@ struct FridgeWallWidgetView: View {
 // MARK: - Container background
 
 struct WidgetContainerBackground: View {
+    let wallId: String?
     @Environment(\.widgetFamily) var family
     
-    // Lee datos live de UserDefaults
-    private var liveData: WidgetData { loadLiveData() }
+    private var liveData: WidgetData { loadData(for: wallId) }
 
     var body: some View {
         if family == .systemLarge {
             if let slots = liveData.memberSlots, !slots.isEmpty {
                 MosaicWidgetView(slots: slots)
             } else {
-                WidgetPhotoBackground()
+                WidgetPhotoBackground(wallId: wallId)
             }
         } else {
-            WidgetPhotoBackground()
+            WidgetPhotoBackground(wallId: wallId)
         }
     }
 }
@@ -540,22 +511,26 @@ struct FridgeWallWidget: Widget {
     let kind: String = "FridgeWallWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: WallSelectionIntent.self, provider: Provider()) { entry in
             if #available(iOS 17.0, *) {
                 FridgeWallWidgetView(entry: entry)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .containerBackground(for: .widget) {
-                        WidgetContainerBackground()
+                        WidgetContainerBackground(wallId: entry.wallId)
+                            .ignoresSafeArea()
                     }
             } else {
                 ZStack {
-                    WidgetContainerBackground()
+                    WidgetContainerBackground(wallId: entry.wallId)
                     FridgeWallWidgetView(entry: entry)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .configurationDisplayName("FridgeWall")
         .description("Fotos de tu wall en la pantalla de inicio")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
 
