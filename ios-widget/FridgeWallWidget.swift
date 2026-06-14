@@ -198,14 +198,30 @@ private func loadLiveData() -> WidgetData {
     return WidgetData()
 }
 
+// MARK: - Image resizing for widget memory limits
+
+private func resizeImage(_ image: UIImage, maxSize: CGFloat = 800) -> UIImage {
+    let size = image.size
+    let ratio = min(maxSize / size.width, maxSize / size.height)
+    if ratio >= 1 { return image }
+    let newSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+    image.draw(in: CGRect(origin: .zero, size: newSize))
+    let resized = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+    return resized ?? image
+}
+
 // MARK: - Photo background
 
 struct WidgetPhotoBackground: View {
-    let photo: WidgetPhotoItem?
+    private var photo: WidgetPhotoItem? {
+        activePhoto(from: loadLiveData())
+    }
 
     var body: some View {
         if let uiImage = loadLocalImage(name: photo?.photoLocalName) {
-            Image(uiImage: uiImage)
+            Image(uiImage: resizeImage(uiImage))
                 .resizable()
                 .scaledToFill()
         } else if let urlString = photo?.photoUrl, let url = URL(string: urlString) {
@@ -412,18 +428,10 @@ struct FridgeWallWidgetView: View {
         }
         .overlay(alignment: .topTrailing) {
             if family == .systemSmall {
-                VStack(alignment: .trailing, spacing: 4) {
-                    debugBadge
-                    smallActions
-                }
-                .padding(8)
-                .unredacted()
+                smallActions
+                    .padding(8)
             } else {
-                VStack(alignment: .trailing, spacing: 4) {
-                    debugBadge
-                    actionButtons
-                }
-                .unredacted()
+                actionButtons
             }
         }
         .widgetURL(widgetTapURL)
@@ -443,20 +451,6 @@ struct FridgeWallWidgetView: View {
     }
 
     /// Botones cámara + galería + (si multiwall) botón de cambiar wall
-    /// DEBUG: muestra live vs entry — eliminar una vez validado
-    private var debugBadge: some View {
-        let livePhotos = loadLiveData().photos?.count ?? 0
-        let entryPhotos = entry.data.photos?.count ?? 0
-        let label = "live:\(livePhotos)|entry:\(entryPhotos)"
-        return Text(verbatim: label)
-            .font(.system(size: 8, weight: .bold).monospaced())
-            .foregroundColor(.black)
-            .padding(.horizontal, 4).padding(.vertical, 2)
-            .background(Color.yellow)
-            .cornerRadius(4)
-            .unredacted()
-    }
-
     @ViewBuilder
     private var actionButtons: some View {
         HStack(spacing: 6) {
@@ -532,10 +526,10 @@ struct WidgetContainerBackground: View {
             if let slots = liveData.memberSlots, !slots.isEmpty {
                 MosaicWidgetView(slots: slots)
             } else {
-                WidgetPhotoBackground(photo: activePhoto(from: liveData))
+                WidgetPhotoBackground()
             }
         } else {
-            WidgetPhotoBackground(photo: activePhoto(from: liveData))
+            WidgetPhotoBackground()
         }
     }
 }
