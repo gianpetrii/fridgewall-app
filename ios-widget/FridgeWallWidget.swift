@@ -10,6 +10,7 @@ struct WidgetPhotoItem: Codable {
     var photoLocalName: String?
     var posterName: String?
     var createdAt: Double?
+    var caption: String?
 }
 
 struct WidgetMemberSlot: Codable {
@@ -382,27 +383,38 @@ struct FridgeWallWidgetView: View {
                         Spacer()
 
                         HStack(alignment: .bottom) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(liveData.groupName ?? "FridgeWall")
-                                    .font(.system(size: 13, weight: .semibold))
+                            // Bottom-left: caption (si existe), estilo "stories"
+                            if let caption = active?.caption,
+                               !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text(caption)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .italic()
                                     .foregroundColor(.white)
-                                if let name = active?.posterName {
-                                    Text("de \(name)")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
+                                    .lineLimit(2)
+                                    .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
                             }
-                            Spacer()
+                            Spacer(minLength: 6)
+                            // Bottom-right: hace cuánto (formato corto)
                             if let ts = active?.createdAt {
                                 Text(timeAgo(Date(timeIntervalSince1970: ts / 1000)))
                                     .font(.system(size: 11))
-                                    .foregroundColor(.white.opacity(0.55))
+                                    .foregroundColor(.white.opacity(0.7))
                             }
                         }
                         .padding(.horizontal, 10)
                         .padding(.bottom, 10)
                     }
                 }
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            // Top-left: quién publicó
+            if showPhoto, let name = active?.posterName {
+                Text("de \(name)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
+                    .padding(10)
             }
         }
         .overlay(alignment: .topTrailing) {

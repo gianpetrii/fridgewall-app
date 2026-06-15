@@ -1,6 +1,6 @@
 "use client";
 import * as React from 'react';
-import { View, Alert, AppState, Animated } from 'react-native';
+import { View, Alert, AppState, Animated, TextInput, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -81,6 +81,7 @@ function UploadModalContent() {
   );
   const [launched, setLaunched] = React.useState(fromEditor === '1');
   const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
+  const [caption, setCaption] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [uploadPhase, setUploadPhase] = React.useState<'uploading' | 'done'>('uploading');
   // Progreso que nunca retrocede visualmente (el store resetea a 0 al terminar el archivo)
@@ -320,9 +321,10 @@ function UploadModalContent() {
     const uri = pendingUri;
     const group = { id: selectedGroup.id, name: selectedGroup.name };
     const poster = { id: user.id, name: user.name };
+    const trimmedCaption = caption.trim() || undefined;
 
     try {
-      const firebaseUrl = await uploadAndPost(group.id, poster.id, poster.name, uri, undefined);
+      const firebaseUrl = await uploadAndPost(group.id, poster.id, poster.name, uri, trimmedCaption);
 
       // Construir payload del widget (incluye localUri para copia de archivo rápida).
       // Leemos del key POR-GRUPO para no arrastrar fotos de otra wall (contaminación).
@@ -335,7 +337,7 @@ function UploadModalContent() {
       }
       const payload = prependPhotoToPayload(
         existing,
-        { photoUrl: firebaseUrl, localUri: uri, posterName: poster.name, createdAt: Date.now() },
+        { photoUrl: firebaseUrl, localUri: uri, posterName: poster.name, createdAt: Date.now(), caption: trimmedCaption },
         group.name,
       );
 
@@ -438,7 +440,7 @@ function UploadModalContent() {
 
 
   return (
-    <View className="flex-1 bg-background" style={{ paddingTop: insets.top + 16, paddingHorizontal: 16 }}>
+    <Pressable className="flex-1 bg-background" style={{ paddingTop: insets.top + 16, paddingHorizontal: 16 }} onPress={Keyboard.dismiss}>
       <View className="flex-row items-center justify-between pb-4">
         <Text variant="h3">Publicar</Text>
         {!isSubmitting && (
@@ -457,7 +459,24 @@ function UploadModalContent() {
         contentFit="cover"
       />
 
-      <View className="bg-muted rounded-2xl overflow-hidden mt-4">
+      <View className="bg-muted rounded-2xl px-4 py-3 mt-4">
+        <TextInput
+          value={caption}
+          onChangeText={setCaption}
+          editable={!isSubmitting}
+          placeholder="Agregá una descripción (opcional)"
+          placeholderTextColor="#a1a1aa"
+          maxLength={120}
+          multiline
+          returnKeyType="done"
+          blurOnSubmit
+          onSubmitEditing={() => Keyboard.dismiss()}
+          className="text-foreground text-base"
+          style={{ minHeight: 22, maxHeight: 80 }}
+        />
+      </View>
+
+      <View className="bg-muted rounded-2xl overflow-hidden mt-3">
         <Pressable
           onPress={togglePicker}
           disabled={groups.length <= 1}
@@ -540,6 +559,6 @@ function UploadModalContent() {
           )}
         </>
       )}
-    </View>
+    </Pressable>
   );
 }

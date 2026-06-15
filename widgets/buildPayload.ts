@@ -20,6 +20,7 @@ export function buildWidgetPayload(posts: Post[], group: Group): StoredWidgetDat
     photoUrl: p.photoUrl,
     posterName: p.userName,
     createdAt: p.createdAt,
+    caption: p.caption,
   }));
 
   const latestByUser = new Map<string, Post>();

@@ -3,6 +3,7 @@ export interface WidgetPhotoItem {
   photoLocalName?: string;
   posterName?: string;
   createdAt: number;
+  caption?: string;
   /** Solo al guardar desde la app; el nativo lo elimina tras copiar */
   localUri?: string;
 }
