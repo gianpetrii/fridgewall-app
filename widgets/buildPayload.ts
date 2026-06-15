@@ -52,11 +52,17 @@ export function prependPhotoToPayload(
   item: WidgetPhotoItem,
   groupName: string,
 ): StoredWidgetData {
+  const TTL_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
   const prev = existing?.photos ?? [];
-  const photos = [item, ...prev.filter((p) => p.photoUrl !== item.photoUrl)].slice(
-    0,
-    WIDGET_PHOTO_LIMIT,
-  );
+  const photos = [
+    item,
+    // Quitamos la foto duplicada y las vencidas (>24h) para no acumular fotos
+    // que ya no existen en el carousel del widget.
+    ...prev.filter(
+      (p) => p.photoUrl !== item.photoUrl && (p.createdAt ?? now) + TTL_MS > now,
+    ),
+  ].slice(0, WIDGET_PHOTO_LIMIT);
   return withLegacyPhotoFields({
     ...existing,
     groupName,

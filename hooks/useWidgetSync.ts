@@ -1,6 +1,8 @@
 import * as React from 'react';
+import { AppState } from 'react-native';
 import { saveWidgetData, saveWidgetDataForGroup, saveGroupsList } from '@/widgets/updateWidget';
 import { buildWidgetPayload } from '@/widgets/buildPayload';
+import { getGroupPosts } from '@/lib/posts';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { usePostsStore } from '@/store/usePostsStore';
@@ -39,4 +41,34 @@ export function useWidgetSync() {
     }, 500);
     return () => clearTimeout(timer);
   }, [posts, activeGroupId, groups]);
+
+  // Sincroniza TODOS los grupos del usuario (no solo el activo) reconstruyendo
+  // cada widget desde los posts reales de Firestore. Así el widget refleja
+  // borrados, vencimientos (>24h) y evita arrastrar fotos de otra wall.
+  // Corre al montar y cada vez que la app vuelve a primer plano.
+  React.useEffect(() => {
+    if (!user?.id || groups.length === 0) return;
+
+    let cancelled = false;
+    const syncAllGroups = async () => {
+      for (const group of groups) {
+        try {
+          const groupPosts = await getGroupPosts(group.id);
+          if (cancelled) return;
+          await saveWidgetDataForGroup(group.id, buildWidgetPayload(groupPosts, group));
+        } catch {
+          // grupo individual falla: seguimos con el resto
+        }
+      }
+    };
+
+    syncAllGroups();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncAllGroups();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [user?.id, groups]);
 }

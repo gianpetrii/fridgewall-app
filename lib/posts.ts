@@ -117,6 +117,17 @@ export async function deletePost(groupId: string, postId: string, photoUrl: stri
   }
 }
 
+/** Trae una sola vez los posts vigentes (no vencidos) de un grupo. */
+export async function getGroupPosts(groupId: string): Promise<Post[]> {
+  const q = query(
+    collection(db, 'groups', groupId, 'posts'),
+    where('expiresAt', '>', Date.now()),
+    orderBy('expiresAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => toPost(d.id, d.data() as Record<string, unknown>));
+}
+
 export function subscribeToGroupPosts(
   groupId: string,
   callback: (posts: Post[]) => void,

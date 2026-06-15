@@ -32,9 +32,27 @@ struct WidgetData: Codable {
 }
 
 private let appGroupId = "group.com.fridgewall.app"
-private let carouselIntervalSec = 8
+// Rotación automática por recarga programada. No puede ser cada pocos segundos
+// (iOS limita las recargas); este intervalo es lo que el sistema mantiene estable
+// y permite que el tap sea instantáneo (no usamos entries futuras).
+private let autoRotateSec = 15 * 60
 private let widgetDataKey = "fridgewall_widget_data"
 private let allGroupsKey = "fridgewall_all_groups"
+
+/// Escribe el índice del carrusel en el JSON guardado (single source of truth).
+private func writeCarouselIndex(_ index: Int, key: String, defaults: UserDefaults?) {
+    guard
+        let defaults,
+        let json = defaults.string(forKey: key),
+        let data = json.data(using: .utf8),
+        var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return }
+    obj["carouselIndex"] = index
+    if let newData = try? JSONSerialization.data(withJSONObject: obj),
+       let newJson = String(data: newData, encoding: .utf8) {
+        defaults.set(newJson, forKey: key)
+    }
+}
 
 // MARK: - Wall selection configuration (AppIntentConfiguration)
 
@@ -86,6 +104,59 @@ struct WallSelectionIntent: WidgetConfigurationIntent {
     var wall: WallEntity?
 }
 
+// MARK: - Advance photo intent (iOS 17+: avanza a la siguiente foto sin abrir la app)
+
+struct AdvancePhotoIntent: AppIntent {
+    static var title: LocalizedStringResource = "Siguiente foto"
+    static var description = IntentDescription("Muestra la próxima foto del wall")
+
+    @Parameter(title: "Wall ID")
+    var wallId: String?
+
+    init() {}
+    init(wallId: String?) {
+        self.wallId = wallId
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let defaults = UserDefaults(suiteName: appGroupId) else { return .result() }
+        let key = wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey
+        guard
+            let json = defaults.string(forKey: key),
+            let data = json.data(using: .utf8),
+            var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let photos = obj["photos"] as? [[String: Any]]
+        else { return .result() }
+
+        // Contamos solo las fotos vigentes (mismo filtro que la vista) para que
+        // el índice avance dentro del conjunto realmente visible.
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        let freshCount = photos.filter { p in
+            if let c = p["createdAt"] as? Double { return c + photoTtlMs > nowMs }
+            return true
+        }.count
+        guard freshCount > 1 else { return .result() }
+
+        // Avanzamos desde el índice guardado en vivo (single source of truth).
+        // La vista lee este mismo índice, así el cambio es instantáneo: iOS
+        // re-renderiza la vista tras el intent sin esperar una recarga.
+        let current = obj["carouselIndex"] as? Int ?? 0
+        let newIndex = (current + 1) % freshCount
+        obj["carouselIndex"] = newIndex
+        if let newData = try? JSONSerialization.data(withJSONObject: obj),
+           let newJson = String(data: newData, encoding: .utf8) {
+            defaults.set(newJson, forKey: key)
+        }
+        // Reseteamos el timer de rotación automática para no saltar de nuevo
+        // inmediatamente después de un avance manual.
+        defaults.set(nowMs, forKey: "\(key)_lastAutoAdvance")
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadTimelines(ofKind: "FridgeWallWidget")
+        }
+        return .result()
+    }
+}
+
 // MARK: - Image helpers
 
 private func loadLocalImage(name: String?) -> UIImage? {
@@ -96,29 +167,31 @@ private func loadLocalImage(name: String?) -> UIImage? {
     return UIImage(contentsOfFile: container.appendingPathComponent(name).path)
 }
 
+// Las fotos expiran a las 24h (igual que los posts en la app).
+private let photoTtlMs: Double = 24 * 60 * 60 * 1000
+
+private func isFresh(_ photo: WidgetPhotoItem) -> Bool {
+    // Sin fecha (legacy): la conservamos por compatibilidad.
+    guard let created = photo.createdAt else { return true }
+    return created + photoTtlMs > Date().timeIntervalSince1970 * 1000
+}
+
 private func resolvedPhotos(from data: WidgetData) -> [WidgetPhotoItem] {
-    if let photos = data.photos, !photos.isEmpty { return photos }
+    if let photos = data.photos, !photos.isEmpty {
+        // Filtramos las vencidas: el dato guardado puede tener fotos viejas
+        // que ya expiraron pero no se limpiaron del payload.
+        return photos.filter(isFresh)
+    }
     if data.photoUrl != nil || data.photoLocalName != nil {
-        return [WidgetPhotoItem(
+        let legacy = WidgetPhotoItem(
             photoUrl: data.photoUrl,
             photoLocalName: data.photoLocalName,
             posterName: data.posterName,
             createdAt: data.createdAt
-        )]
+        )
+        return isFresh(legacy) ? [legacy] : []
     }
     return []
-}
-
-private func activePhoto(from data: WidgetData) -> WidgetPhotoItem? {
-    let photos = resolvedPhotos(from: data)
-    guard !photos.isEmpty else { return nil }
-    let idx = (data.carouselIndex ?? 0) % photos.count
-    return photos[idx]
-}
-
-private func hasPhoto(data: WidgetData) -> Bool {
-    guard let photo = activePhoto(from: data) else { return false }
-    return photo.photoLocalName != nil || photo.photoUrl != nil
 }
 
 // MARK: - Data loading
@@ -163,22 +236,30 @@ struct Provider: AppIntentTimelineProvider {
 
     func timeline(for configuration: WallSelectionIntent, in context: Context) async -> Timeline<FridgeWallEntry> {
         let wallId = configuration.wall?.id
-        let base = loadData(for: wallId)
+        let defaults = UserDefaults(suiteName: appGroupId)
+        let key = wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey
+        var base = loadData(for: wallId)
         let photos = resolvedPhotos(from: base)
         let now = Date()
 
-        if photos.count > 1 && context.family != .systemLarge {
-            var entries: [FridgeWallEntry] = []
-            for (index, _) in photos.enumerated() {
-                var entryData = base
-                entryData.carouselIndex = index
-                let date = Calendar.current.date(byAdding: .second, value: index * carouselIntervalSec, to: now)!
-                entries.append(FridgeWallEntry(date: date, data: entryData, wallId: wallId))
+        if photos.count > 1 {
+            // Rotación automática "lenta" por recarga: si pasó el intervalo desde
+            // el último avance automático, avanzamos el índice guardado. La vista
+            // lee ese mismo índice en vivo, así NO usamos entries futuras (que
+            // bloqueaban el tap instantáneo).
+            let nowMs = now.timeIntervalSince1970 * 1000
+            let lastAuto = defaults?.double(forKey: "\(key)_lastAutoAdvance") ?? 0
+            if lastAuto == 0 || nowMs - lastAuto >= Double(autoRotateSec) * 1000 {
+                let current = base.carouselIndex ?? 0
+                let nextIndex = (current + 1) % photos.count
+                base.carouselIndex = nextIndex
+                writeCarouselIndex(nextIndex, key: key, defaults: defaults)
+                defaults?.set(nowMs, forKey: "\(key)_lastAutoAdvance")
             }
-            let reload = Calendar.current.date(byAdding: .second, value: photos.count * carouselIntervalSec, to: now)!
-            return Timeline(entries: entries, policy: .after(reload))
+            let next = Calendar.current.date(byAdding: .second, value: autoRotateSec, to: now)!
+            return Timeline(entries: [FridgeWallEntry(date: now, data: base, wallId: wallId)], policy: .after(next))
         } else {
-            let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
+            let next = Calendar.current.date(byAdding: .minute, value: 30, to: now)!
             return Timeline(entries: [FridgeWallEntry(date: now, data: base, wallId: wallId)], policy: .after(next))
         }
     }
@@ -202,9 +283,15 @@ private func resizeImage(_ image: UIImage, maxSize: CGFloat = 800) -> UIImage {
 
 struct WidgetPhotoBackground: View {
     let wallId: String?
-    
+
+    // Lee el índice en vivo desde el almacenamiento compartido (single source of
+    // truth). Así el tap se refleja al instante y la rotación lenta también.
     private var photo: WidgetPhotoItem? {
-        activePhoto(from: loadData(for: wallId))
+        let data = loadData(for: wallId)
+        let photos = resolvedPhotos(from: data)
+        guard !photos.isEmpty else { return nil }
+        let index = data.carouselIndex ?? 0
+        return photos[index % photos.count]
     }
 
     var body: some View {
@@ -226,104 +313,6 @@ struct WidgetPhotoBackground: View {
     }
 }
 
-// MARK: - Large mosaic
-
-struct MemberCell: View {
-    let slot: WidgetMemberSlot
-
-    var body: some View {
-        ZStack {
-            if let uiImage = loadLocalImage(name: slot.photoLocalName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else if let urlString = slot.photoUrl, let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        placeholder
-                    }
-                }
-            } else {
-                placeholder
-            }
-        }
-        .clipped()
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Color.gray.opacity(0.35)
-            Text(initial)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.white)
-        }
-    }
-
-    private var initial: String {
-        let name = slot.userName ?? slot.userId ?? "?"
-        return String(name.prefix(1)).uppercased()
-    }
-}
-
-struct MosaicWidgetView: View {
-    let slots: [WidgetMemberSlot]
-
-    var body: some View {
-        GeometryReader { geo in
-            let count = max(slots.count, 1)
-            Group {
-                switch count {
-                case 1:
-                    MemberCell(slot: slots[0])
-                case 2:
-                    HStack(spacing: 2) {
-                        MemberCell(slot: slots[0])
-                        MemberCell(slot: slots[1])
-                    }
-                case 3:
-                    VStack(spacing: 2) {
-                        HStack(spacing: 2) {
-                            MemberCell(slot: slots[0])
-                            MemberCell(slot: slots[1])
-                        }
-                        .frame(height: geo.size.height * 0.5)
-                        MemberCell(slot: slots[2])
-                            .frame(height: geo.size.height * 0.5)
-                    }
-                default:
-                    let shown = Array(slots.prefix(4))
-                    let extra = slots.count - 4
-                    VStack(spacing: 2) {
-                        HStack(spacing: 2) {
-                            MemberCell(slot: shown[0])
-                            MemberCell(slot: shown[1])
-                        }
-                        .frame(height: geo.size.height * 0.5)
-                        HStack(spacing: 2) {
-                            MemberCell(slot: shown[2])
-                            ZStack(alignment: .bottomTrailing) {
-                                MemberCell(slot: shown[3])
-                                if extra > 0 {
-                                    Text("+\(extra)")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(6)
-                                        .background(Color.black.opacity(0.55))
-                                        .cornerRadius(8)
-                                        .padding(6)
-                                }
-                            }
-                        }
-                        .frame(height: geo.size.height * 0.5)
-                    }
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Widget view
 
 struct FridgeWallWidgetView: View {
@@ -336,78 +325,83 @@ struct FridgeWallWidgetView: View {
     var uploadURL: URL { URL(string: "fridgewall://upload")! }
 
     private var liveData: WidgetData { loadData(for: entry.wallId) }
-    private var active: WidgetPhotoItem? { activePhoto(from: liveData) }
-    private var showPhoto: Bool { hasPhoto(data: liveData) }
+    private var livePhotos: [WidgetPhotoItem] { resolvedPhotos(from: liveData) }
+    // Índice en vivo desde el almacenamiento (single source of truth): el tap se
+    // refleja al instante y la rotación lenta también escribe acá.
+    private var carouselIndex: Int { liveData.carouselIndex ?? 0 }
+    private var active: WidgetPhotoItem? {
+        let photos = livePhotos
+        guard !photos.isEmpty else { return nil }
+        return photos[carouselIndex % photos.count]
+    }
+    private var showPhoto: Bool {
+        guard let p = active else { return false }
+        return p.photoLocalName != nil || p.photoUrl != nil
+    }
+    private var canAdvance: Bool { livePhotos.count > 1 }
 
+    // Todos los tamaños muestran una sola foto a pantalla completa.
     var body: some View {
-        if family == .systemLarge {
-            largeBody
-        } else {
-            carouselBody
-        }
+        carouselBody
     }
 
+    /// Envuelve el contenido en un Button(intent:) que avanza a la siguiente foto
+    /// sin abrir la app (iOS 17+). En iOS 16 devuelve el contenido sin cambios
+    /// (el tap se maneja vía widgetURL).
     @ViewBuilder
-    private var largeBody: some View {
-        ZStack(alignment: .bottom) {
-            let hasSlots = !(liveData.memberSlots?.isEmpty ?? true)
-            if !hasSlots && !showPhoto {
-                emptyState
+    private func advanceWrapper<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if #available(iOS 17.0, *), canAdvance {
+            Button(intent: AdvancePhotoIntent(wallId: entry.wallId)) {
+                content()
             }
-
-            if liveData.groupName != nil {
-                LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
-                Text(liveData.groupName ?? "FridgeWall")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            .buttonStyle(.plain)
+        } else {
+            content()
         }
-        .overlay(alignment: .topTrailing) {
-            actionButtons
-        }
-        .widgetURL(galleryURL)
     }
 
     @ViewBuilder
     private var carouselBody: some View {
-        ZStack(alignment: .bottom) {
-            if !showPhoto {
-                emptyState
-            }
+        advanceWrapper {
+            ZStack(alignment: .bottom) {
+                // Capa base transparente: garantiza que toda el área sea tappable
+                Color.clear
 
-            if showPhoto {
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.75)],
-                    startPoint: .center,
-                    endPoint: .bottom
-                )
+                if !showPhoto {
+                    emptyState
+                }
 
-                VStack(spacing: 0) {
-                    Spacer()
+                if showPhoto {
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.75)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
 
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(liveData.groupName ?? "FridgeWall")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                            if let name = active?.posterName {
-                                Text("de \(name)")
+                    VStack(spacing: 0) {
+                        Spacer()
+
+                        HStack(alignment: .bottom) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(liveData.groupName ?? "FridgeWall")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                if let name = active?.posterName {
+                                    Text("de \(name)")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                            }
+                            Spacer()
+                            if let ts = active?.createdAt {
+                                Text(timeAgo(Date(timeIntervalSince1970: ts / 1000)))
                                     .font(.system(size: 11))
-                                    .foregroundColor(.white.opacity(0.7))
+                                    .foregroundColor(.white.opacity(0.55))
                             }
                         }
-                        Spacer()
-                        if let ts = active?.createdAt {
-                            Text(timeAgo(Date(timeIntervalSince1970: ts / 1000)))
-                                .font(.system(size: 11))
-                                .foregroundColor(.white.opacity(0.55))
-                        }
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 10)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 10)
                 }
             }
         }
@@ -419,20 +413,43 @@ struct FridgeWallWidgetView: View {
                 actionButtons
             }
         }
+        .overlay(alignment: .topLeading) {
+            debugBadge.padding(10)
+        }
         .widgetURL(widgetTapURL)
     }
 
+    /// DEBUG: e=índice del entry mostrado, c=total fotos, s=índice guardado — eliminar tras validar
+    private var debugBadge: some View {
+        let stored = UserDefaults(suiteName: appGroupId)?
+            .string(forKey: entry.wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey)
+            .flatMap { $0.data(using: .utf8) }
+            .flatMap { try? JSONDecoder().decode(WidgetData.self, from: $0) }?
+            .carouselIndex ?? -1
+        return Text(verbatim: "e\(carouselIndex) c\(livePhotos.count) s\(stored)")
+            .font(.system(size: 9, weight: .bold).monospaced())
+            .foregroundColor(.black)
+            .padding(.horizontal, 5).padding(.vertical, 3)
+            .background(Color.yellow)
+            .cornerRadius(5)
+            .unredacted()
+    }
+
     private var widgetTapURL: URL? {
+        // iOS 17+ con varias fotos: el tap lo maneja el Button de avance
+        if #available(iOS 17.0, *), canAdvance {
+            return nil
+        }
         if family == .systemSmall { return uploadURL }
-        let photos = resolvedPhotos(from: liveData)
-        if photos.count > 1 { return nextPhotoURL }
+        if canAdvance { return nextPhotoURL }
         return galleryURL
     }
 
     @ViewBuilder
     private var smallActions: some View {
-        Link(destination: cameraURL) {
-            iconButton(icon: "camera.fill")
+        // En el widget chico hay un solo botón: abre el picker (elegir cámara o galería)
+        Link(destination: uploadURL) {
+            iconButton(icon: "plus")
         }
     }
 
@@ -488,20 +505,10 @@ struct FridgeWallWidgetView: View {
 
 struct WidgetContainerBackground: View {
     let wallId: String?
-    @Environment(\.widgetFamily) var family
-    
-    private var liveData: WidgetData { loadData(for: wallId) }
 
+    // Todos los tamaños muestran una sola foto a pantalla completa.
     var body: some View {
-        if family == .systemLarge {
-            if let slots = liveData.memberSlots, !slots.isEmpty {
-                MosaicWidgetView(slots: slots)
-            } else {
-                WidgetPhotoBackground(wallId: wallId)
-            }
-        } else {
-            WidgetPhotoBackground(wallId: wallId)
-        }
+        WidgetPhotoBackground(wallId: wallId)
     }
 }
 

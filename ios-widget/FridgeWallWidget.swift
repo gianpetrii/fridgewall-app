@@ -32,9 +32,27 @@ struct WidgetData: Codable {
 }
 
 private let appGroupId = "group.com.fridgewall.app"
-private let carouselIntervalSec = 8
+// Rotación automática por recarga programada. No puede ser cada pocos segundos
+// (iOS limita las recargas); este intervalo es lo que el sistema mantiene estable
+// y permite que el tap sea instantáneo (no usamos entries futuras).
+private let autoRotateSec = 15 * 60
 private let widgetDataKey = "fridgewall_widget_data"
 private let allGroupsKey = "fridgewall_all_groups"
+
+/// Escribe el índice del carrusel en el JSON guardado (single source of truth).
+private func writeCarouselIndex(_ index: Int, key: String, defaults: UserDefaults?) {
+    guard
+        let defaults,
+        let json = defaults.string(forKey: key),
+        let data = json.data(using: .utf8),
+        var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return }
+    obj["carouselIndex"] = index
+    if let newData = try? JSONSerialization.data(withJSONObject: obj),
+       let newJson = String(data: newData, encoding: .utf8) {
+        defaults.set(newJson, forKey: key)
+    }
+}
 
 // MARK: - Wall selection configuration (AppIntentConfiguration)
 
@@ -107,17 +125,31 @@ struct AdvancePhotoIntent: AppIntent {
             let json = defaults.string(forKey: key),
             let data = json.data(using: .utf8),
             var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let photos = obj["photos"] as? [[String: Any]],
-            photos.count > 1
+            let photos = obj["photos"] as? [[String: Any]]
         else { return .result() }
 
+        // Contamos solo las fotos vigentes (mismo filtro que la vista) para que
+        // el índice avance dentro del conjunto realmente visible.
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        let freshCount = photos.filter { p in
+            if let c = p["createdAt"] as? Double { return c + photoTtlMs > nowMs }
+            return true
+        }.count
+        guard freshCount > 1 else { return .result() }
+
+        // Avanzamos desde el índice guardado en vivo (single source of truth).
+        // La vista lee este mismo índice, así el cambio es instantáneo: iOS
+        // re-renderiza la vista tras el intent sin esperar una recarga.
         let current = obj["carouselIndex"] as? Int ?? 0
-        obj["carouselIndex"] = (current + 1) % photos.count
+        let newIndex = (current + 1) % freshCount
+        obj["carouselIndex"] = newIndex
         if let newData = try? JSONSerialization.data(withJSONObject: obj),
            let newJson = String(data: newData, encoding: .utf8) {
             defaults.set(newJson, forKey: key)
-            defaults.synchronize()
         }
+        // Reseteamos el timer de rotación automática para no saltar de nuevo
+        // inmediatamente después de un avance manual.
+        defaults.set(nowMs, forKey: "\(key)_lastAutoAdvance")
         if #available(iOS 14.0, *) {
             WidgetCenter.shared.reloadTimelines(ofKind: "FridgeWallWidget")
         }
@@ -135,15 +167,29 @@ private func loadLocalImage(name: String?) -> UIImage? {
     return UIImage(contentsOfFile: container.appendingPathComponent(name).path)
 }
 
+// Las fotos expiran a las 24h (igual que los posts en la app).
+private let photoTtlMs: Double = 24 * 60 * 60 * 1000
+
+private func isFresh(_ photo: WidgetPhotoItem) -> Bool {
+    // Sin fecha (legacy): la conservamos por compatibilidad.
+    guard let created = photo.createdAt else { return true }
+    return created + photoTtlMs > Date().timeIntervalSince1970 * 1000
+}
+
 private func resolvedPhotos(from data: WidgetData) -> [WidgetPhotoItem] {
-    if let photos = data.photos, !photos.isEmpty { return photos }
+    if let photos = data.photos, !photos.isEmpty {
+        // Filtramos las vencidas: el dato guardado puede tener fotos viejas
+        // que ya expiraron pero no se limpiaron del payload.
+        return photos.filter(isFresh)
+    }
     if data.photoUrl != nil || data.photoLocalName != nil {
-        return [WidgetPhotoItem(
+        let legacy = WidgetPhotoItem(
             photoUrl: data.photoUrl,
             photoLocalName: data.photoLocalName,
             posterName: data.posterName,
             createdAt: data.createdAt
-        )]
+        )
+        return isFresh(legacy) ? [legacy] : []
     }
     return []
 }
@@ -190,25 +236,30 @@ struct Provider: AppIntentTimelineProvider {
 
     func timeline(for configuration: WallSelectionIntent, in context: Context) async -> Timeline<FridgeWallEntry> {
         let wallId = configuration.wall?.id
-        let base = loadData(for: wallId)
+        let defaults = UserDefaults(suiteName: appGroupId)
+        let key = wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey
+        var base = loadData(for: wallId)
         let photos = resolvedPhotos(from: base)
         let now = Date()
-        // Índice de partida = el guardado (por avance manual). La rotación
-        // automática continúa desde ahí.
-        let startIndex = base.carouselIndex ?? 0
 
         if photos.count > 1 {
-            var entries: [FridgeWallEntry] = []
-            for offset in 0..<photos.count {
-                var entryData = base
-                entryData.carouselIndex = (startIndex + offset) % photos.count
-                let date = Calendar.current.date(byAdding: .second, value: offset * carouselIntervalSec, to: now)!
-                entries.append(FridgeWallEntry(date: date, data: entryData, wallId: wallId))
+            // Rotación automática "lenta" por recarga: si pasó el intervalo desde
+            // el último avance automático, avanzamos el índice guardado. La vista
+            // lee ese mismo índice en vivo, así NO usamos entries futuras (que
+            // bloqueaban el tap instantáneo).
+            let nowMs = now.timeIntervalSince1970 * 1000
+            let lastAuto = defaults?.double(forKey: "\(key)_lastAutoAdvance") ?? 0
+            if lastAuto == 0 || nowMs - lastAuto >= Double(autoRotateSec) * 1000 {
+                let current = base.carouselIndex ?? 0
+                let nextIndex = (current + 1) % photos.count
+                base.carouselIndex = nextIndex
+                writeCarouselIndex(nextIndex, key: key, defaults: defaults)
+                defaults?.set(nowMs, forKey: "\(key)_lastAutoAdvance")
             }
-            let reload = Calendar.current.date(byAdding: .second, value: photos.count * carouselIntervalSec, to: now)!
-            return Timeline(entries: entries, policy: .after(reload))
+            let next = Calendar.current.date(byAdding: .second, value: autoRotateSec, to: now)!
+            return Timeline(entries: [FridgeWallEntry(date: now, data: base, wallId: wallId)], policy: .after(next))
         } else {
-            let next = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
+            let next = Calendar.current.date(byAdding: .minute, value: 30, to: now)!
             return Timeline(entries: [FridgeWallEntry(date: now, data: base, wallId: wallId)], policy: .after(next))
         }
     }
@@ -232,11 +283,14 @@ private func resizeImage(_ image: UIImage, maxSize: CGFloat = 800) -> UIImage {
 
 struct WidgetPhotoBackground: View {
     let wallId: String?
-    let index: Int
 
+    // Lee el índice en vivo desde el almacenamiento compartido (single source of
+    // truth). Así el tap se refleja al instante y la rotación lenta también.
     private var photo: WidgetPhotoItem? {
-        let photos = resolvedPhotos(from: loadData(for: wallId))
+        let data = loadData(for: wallId)
+        let photos = resolvedPhotos(from: data)
         guard !photos.isEmpty else { return nil }
+        let index = data.carouselIndex ?? 0
         return photos[index % photos.count]
     }
 
@@ -272,8 +326,9 @@ struct FridgeWallWidgetView: View {
 
     private var liveData: WidgetData { loadData(for: entry.wallId) }
     private var livePhotos: [WidgetPhotoItem] { resolvedPhotos(from: liveData) }
-    // El índice viene del entry del timeline (permite rotación automática).
-    private var carouselIndex: Int { entry.data.carouselIndex ?? 0 }
+    // Índice en vivo desde el almacenamiento (single source of truth): el tap se
+    // refleja al instante y la rotación lenta también escribe acá.
+    private var carouselIndex: Int { liveData.carouselIndex ?? 0 }
     private var active: WidgetPhotoItem? {
         let photos = livePhotos
         guard !photos.isEmpty else { return nil }
@@ -358,7 +413,26 @@ struct FridgeWallWidgetView: View {
                 actionButtons
             }
         }
+        .overlay(alignment: .topLeading) {
+            debugBadge.padding(10)
+        }
         .widgetURL(widgetTapURL)
+    }
+
+    /// DEBUG: e=índice del entry mostrado, c=total fotos, s=índice guardado — eliminar tras validar
+    private var debugBadge: some View {
+        let stored = UserDefaults(suiteName: appGroupId)?
+            .string(forKey: entry.wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey)
+            .flatMap { $0.data(using: .utf8) }
+            .flatMap { try? JSONDecoder().decode(WidgetData.self, from: $0) }?
+            .carouselIndex ?? -1
+        return Text(verbatim: "e\(carouselIndex) c\(livePhotos.count) s\(stored)")
+            .font(.system(size: 9, weight: .bold).monospaced())
+            .foregroundColor(.black)
+            .padding(.horizontal, 5).padding(.vertical, 3)
+            .background(Color.yellow)
+            .cornerRadius(5)
+            .unredacted()
     }
 
     private var widgetTapURL: URL? {
@@ -431,11 +505,10 @@ struct FridgeWallWidgetView: View {
 
 struct WidgetContainerBackground: View {
     let wallId: String?
-    let index: Int
 
     // Todos los tamaños muestran una sola foto a pantalla completa.
     var body: some View {
-        WidgetPhotoBackground(wallId: wallId, index: index)
+        WidgetPhotoBackground(wallId: wallId)
     }
 }
 
@@ -450,12 +523,12 @@ struct FridgeWallWidget: Widget {
                 FridgeWallWidgetView(entry: entry)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .containerBackground(for: .widget) {
-                        WidgetContainerBackground(wallId: entry.wallId, index: entry.data.carouselIndex ?? 0)
+                        WidgetContainerBackground(wallId: entry.wallId)
                             .ignoresSafeArea()
                     }
             } else {
                 ZStack {
-                    WidgetContainerBackground(wallId: entry.wallId, index: entry.data.carouselIndex ?? 0)
+                    WidgetContainerBackground(wallId: entry.wallId)
                     FridgeWallWidgetView(entry: entry)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

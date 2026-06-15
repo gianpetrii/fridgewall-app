@@ -139,20 +139,6 @@ function UploadModalContent() {
     }).catch(() => {});
   }, [retryFailed]);
 
-  const goToEditor = React.useCallback(
-    (uri: string) => {
-      router.push({
-        pathname: '/photo-editor',
-        params: {
-          uri,
-          ...(source ? { source } : {}),
-          ...(fromWidget === '1' ? { fromWidget: '1' } : {}),
-        },
-      });
-    },
-    [router, source, fromWidget],
-  );
-
   const waitForActive = React.useCallback((): Promise<void> => {
     return new Promise((resolve) => {
       if (AppState.currentState === 'active') {
@@ -167,6 +153,26 @@ function UploadModalContent() {
       });
     });
   }, []);
+
+  const goToEditor = React.useCallback(
+    async (uri: string) => {
+      // El picker nativo (cámara/galería) es un modal que se está cerrando cuando
+      // resolvió. Si presentamos el editor (otro modal) en ese instante, iOS
+      // descarta la presentación ("present while dismissing") y el editor nunca
+      // aparece. Esperamos a que la app vuelva a estar activa + un settle corto.
+      await waitForActive();
+      await new Promise((r) => setTimeout(r, 350));
+      router.push({
+        pathname: '/photo-editor',
+        params: {
+          uri,
+          ...(source ? { source } : {}),
+          ...(fromWidget === '1' ? { fromWidget: '1' } : {}),
+        },
+      });
+    },
+    [router, source, fromWidget, waitForActive],
+  );
 
   const openCamera = React.useCallback(async (): Promise<'picked' | 'canceled' | 'denied'> => {
     await waitForActive();
@@ -318,10 +324,11 @@ function UploadModalContent() {
     try {
       const firebaseUrl = await uploadAndPost(group.id, poster.id, poster.name, uri, undefined);
 
-      // Construir payload del widget (incluye localUri para copia de archivo rápida)
+      // Construir payload del widget (incluye localUri para copia de archivo rápida).
+      // Leemos del key POR-GRUPO para no arrastrar fotos de otra wall (contaminación).
       let existing: StoredWidgetData | null = null;
       try {
-        const raw = await AsyncStorage.getItem(WIDGET_DATA_KEY);
+        const raw = await AsyncStorage.getItem(`${WIDGET_DATA_KEY}_${group.id}`);
         if (raw) existing = JSON.parse(raw) as StoredWidgetData;
       } catch {
         existing = null;

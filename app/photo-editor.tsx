@@ -14,7 +14,7 @@ import {
   FontFamilyPicker,
   StyleToggles,
 } from '@/components/photo-editor/PhotoEditorCanvas';
-import type { BrushSize, EditorLayer, EditorMode, FontFamily } from '@/components/photo-editor/types';
+import type { BrushSize, EditorLayer, EditorMode, FontFamily, TextLayer } from '@/components/photo-editor/types';
 import { BRUSH_SIZES, EDITOR_COLORS } from '@/components/photo-editor/types';
 
 export default function PhotoEditorScreen() {
