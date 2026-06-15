@@ -71,27 +71,19 @@ public class FridgeWallSharedDataModule: Module {
       return result
     }
 
-    // Lee el JSON actualmente guardado para comparar URLs y evitar re-descargas
-    let storedPhotos: [[String: Any]] = {
-      guard
-        let defaults = UserDefaults(suiteName: appGroupId),
-        let stored = defaults.string(forKey: dataKey),
-        let data = stored.data(using: .utf8),
-        let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-        let arr = obj["photos"] as? [[String: Any]]
-      else { return [] }
-      return arr
-    }()
-
     var keptFilenames = Set<String>()
 
     if let photos = json["photos"] as? [[String: Any]], !photos.isEmpty {
       var updatedPhotos: [[String: Any]] = []
       for (index, var photo) in photos.enumerated() {
-        let filename = "\(photoPrefix)\(index).jpg"
-        // URL ya cacheada para esta posición (nil si es nueva o cambió de posición)
-        let cachedUrl = index < storedPhotos.count ? storedPhotos[index]["photoUrl"] as? String : nil
-        if await savePhotoItem(photo: &photo, filename: filename, container: container, cachedUrl: cachedUrl) {
+        // Nombre de archivo ESTABLE por contenido (hash de la URL), no por índice.
+        // Así, cuando el array se reordena al publicar (prepend mete la nueva en 0),
+        // cada foto sigue usando su mismo archivo: no hay duplicados ni fotos negras.
+        let urlKey = (photo["photoUrl"] as? String)
+          ?? (photo["localUri"] as? String)
+          ?? "idx_\(index)"
+        let filename = "\(photoPrefix)\(djb2Hash(urlKey)).jpg"
+        if await savePhotoItem(photo: &photo, filename: filename, container: container) {
           photo["photoLocalName"] = filename
           photo.removeValue(forKey: "localUri")
           keptFilenames.insert(filename)
@@ -161,19 +153,15 @@ public class FridgeWallSharedDataModule: Module {
   private func savePhotoItem(
     photo: inout [String: Any],
     filename: String,
-    container: URL,
-    cachedUrl: String? = nil
+    container: URL
   ) async -> Bool {
     let destURL = container.appendingPathComponent(filename)
 
-    // Foto local nueva (recién tomada o elegida de la galería): siempre copiar
+    // Foto local nueva (recién tomada/editada o de galería): copiar.
     if let localUri = photo["localUri"] as? String {
-      let sourceURL: URL?
-      if localUri.hasPrefix("file://") {
-        sourceURL = URL(string: localUri)
-      } else {
-        sourceURL = URL(fileURLWithPath: localUri)
-      }
+      let sourceURL: URL? = localUri.hasPrefix("file://")
+        ? URL(string: localUri)
+        : URL(fileURLWithPath: localUri)
       if let sourceURL, FileManager.default.fileExists(atPath: sourceURL.path) {
         do {
           if FileManager.default.fileExists(atPath: destURL.path) {
@@ -182,14 +170,15 @@ public class FridgeWallSharedDataModule: Module {
           try FileManager.default.copyItem(at: sourceURL, to: destURL)
           return true
         } catch {
-          return false
+          // Si falla la copia local, intentamos el fallback por URL más abajo.
         }
       }
     }
 
     if let photoUrlString = photo["photoUrl"] as? String, let photoUrl = URL(string: photoUrlString) {
-      // Las fotos son inmutables: si ya está cacheada con la misma URL, reusar el archivo
-      if photoUrlString == cachedUrl && FileManager.default.fileExists(atPath: destURL.path) {
+      // Nombre estable por URL: si el archivo ya existe, es exactamente la misma
+      // imagen (las fotos son inmutables) → reusar sin re-descargar.
+      if FileManager.default.fileExists(atPath: destURL.path) {
         return true
       }
       do {
@@ -202,6 +191,16 @@ public class FridgeWallSharedDataModule: Module {
     }
 
     return false
+  }
+
+  /// Hash determinista (djb2) para nombrar archivos por contenido de forma estable
+  /// entre lanzamientos. (String.hashValue de Swift es aleatorio por proceso, no sirve.)
+  private func djb2Hash(_ s: String) -> String {
+    var hash: UInt64 = 5381
+    for byte in s.utf8 {
+      hash = (hash &* 33) &+ UInt64(byte)
+    }
+    return String(hash, radix: 36)
   }
 
   private func mirrorLegacyFields(from photos: [[String: Any]], into json: inout [String: Any]) {

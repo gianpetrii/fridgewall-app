@@ -413,26 +413,7 @@ struct FridgeWallWidgetView: View {
                 actionButtons
             }
         }
-        .overlay(alignment: .topLeading) {
-            debugBadge.padding(10)
-        }
         .widgetURL(widgetTapURL)
-    }
-
-    /// DEBUG: e=índice del entry mostrado, c=total fotos, s=índice guardado — eliminar tras validar
-    private var debugBadge: some View {
-        let stored = UserDefaults(suiteName: appGroupId)?
-            .string(forKey: entry.wallId.map { "fridgewall_widget_data_\($0)" } ?? widgetDataKey)
-            .flatMap { $0.data(using: .utf8) }
-            .flatMap { try? JSONDecoder().decode(WidgetData.self, from: $0) }?
-            .carouselIndex ?? -1
-        return Text(verbatim: "e\(carouselIndex) c\(livePhotos.count) s\(stored)")
-            .font(.system(size: 9, weight: .bold).monospaced())
-            .foregroundColor(.black)
-            .padding(.horizontal, 5).padding(.vertical, 3)
-            .background(Color.yellow)
-            .cornerRadius(5)
-            .unredacted()
     }
 
     private var widgetTapURL: URL? {
