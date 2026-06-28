@@ -16,6 +16,13 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Group } from '@/types';
+import { LIMITS, limitMessages } from '@/constants/limits';
+
+async function countUserGroups(userId: string): Promise<number> {
+  const q = query(collection(db, 'groups'), where('members', 'array-contains', userId));
+  const snap = await getDocs(q);
+  return snap.size;
+}
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -38,6 +45,9 @@ function toGroup(id: string, data: Record<string, unknown>): Group {
 }
 
 export async function createGroup(name: string, userId: string): Promise<Group> {
+  if ((await countUserGroups(userId)) >= LIMITS.WALLS_PER_USER) {
+    throw new Error(limitMessages.wallsPerUser);
+  }
   const inviteCode = generateInviteCode();
   const ref = await addDoc(collection(db, 'groups'), {
     name,
@@ -63,6 +73,10 @@ export async function joinGroupByCode(code: string, userId: string): Promise<Gro
 
   if (members.includes(userId)) {
     return toGroup(groupDoc.id, data);
+  }
+
+  if ((await countUserGroups(userId)) >= LIMITS.WALLS_PER_USER) {
+    throw new Error(limitMessages.wallsPerUser);
   }
 
   await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });

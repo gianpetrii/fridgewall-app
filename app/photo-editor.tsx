@@ -166,7 +166,7 @@ function PhotoEditorContent() {
     try {
       const editedUri = await captureRef(canvasRef, {
         format: 'jpg',
-        quality: 0.9,
+        quality: 0.7,
         width: 1080,
         height: 1080,
       });

@@ -15,8 +15,32 @@ import {
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, firebaseStorage } from '@/lib/firebase';
 import type { Post, Reaction, ReactionType } from '@/types';
+import { LIMITS, limitMessages } from '@/constants/limits';
 
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+/** Error de límite alcanzado (no es un fallo transitorio: no conviene reintentar). */
+export class LimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LimitError';
+  }
+}
+
+/**
+ * Verifica los límites de fotos activas antes de subir (para no gastar Storage):
+ * tope por usuario-por-wall y tope duro por wall. Lanza LimitError si se exceden.
+ */
+export async function assertCanPost(groupId: string, userId: string): Promise<void> {
+  const active = await getGroupPosts(groupId);
+  if (active.length >= LIMITS.PHOTOS_PER_WALL) {
+    throw new LimitError(limitMessages.photosPerWall);
+  }
+  const mine = active.filter((p) => p.userId === userId).length;
+  if (mine >= LIMITS.PHOTOS_PER_USER_PER_WALL) {
+    throw new LimitError(limitMessages.photosPerUser);
+  }
+}
 
 function toPost(id: string, data: Record<string, unknown>): Post {
   const createdAt =

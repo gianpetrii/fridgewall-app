@@ -364,10 +364,16 @@ function UploadModalContent() {
       ]);
 
       safeClose();
-    } catch {
+    } catch (err) {
       setIsSubmitting(false);
       setUploadPhase('uploading' as const);
       setDisplayProgress(0);
+
+      // Límite alcanzado: no es un fallo transitorio, no guardamos para reintento.
+      if (err instanceof Error && err.name === 'LimitError') {
+        Alert.alert('Límite alcanzado', err.message);
+        return;
+      }
 
       const failedUpload: FailedUpload = {
         groupId: group.id,

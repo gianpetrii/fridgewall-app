@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Platform } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { getFirebaseErrorMessage } from '@/lib/utils';
 import type { LoginForm } from '@/types';
 
@@ -38,6 +40,17 @@ function GoogleIcon() {
   );
 }
 
+function AppleIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24">
+      <Path
+        d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -45,10 +58,20 @@ const loginSchema = z.object({
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, signInWithGoogle, isLoading } = useAuthStore();
+  const { login, signInWithGoogle, signInWithApple, isLoading } = useAuthStore();
   const { toast } = useToast();
+  const { isDark } = useColorScheme();
   const [showPassword, setShowPassword] = React.useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  const [isAppleLoading, setIsAppleLoading] = React.useState(false);
+  const [appleAvailable, setAppleAvailable] = React.useState(false);
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
@@ -58,6 +81,17 @@ export default function LoginScreen() {
       toast({ message: getFirebaseErrorMessage(err), variant: 'error' });
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      await signInWithApple();
+    } catch (err) {
+      toast({ message: getFirebaseErrorMessage(err), variant: 'error' });
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -153,7 +187,7 @@ export default function LoginScreen() {
           size="lg"
           className="mt-4"
           loading={isGoogleLoading}
-          disabled={isLoading}
+          disabled={isLoading || isAppleLoading}
           onPress={handleGoogleSignIn}
         >
           <View className="flex-row items-center gap-3">
@@ -161,6 +195,22 @@ export default function LoginScreen() {
             <Text className="text-foreground font-semibold text-base">Continuar con Google</Text>
           </View>
         </Button>
+
+        {appleAvailable && (
+          <Button
+            variant="outline"
+            size="lg"
+            className="mt-3"
+            loading={isAppleLoading}
+            disabled={isLoading || isGoogleLoading}
+            onPress={handleAppleSignIn}
+          >
+            <View className="flex-row items-center gap-3">
+              <AppleIcon color={isDark ? '#fafafa' : '#18181b'} />
+              <Text className="text-foreground font-semibold text-base">Continuar con Apple</Text>
+            </View>
+          </Button>
+        )}
 
         <View className="flex-row justify-center items-center mt-6 gap-1">
           <Text variant="muted">¿No tenés cuenta?</Text>

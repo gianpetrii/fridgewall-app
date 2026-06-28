@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Pressable, TextInput, ActivityIndicator, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Moon, Sun, Monitor, LogOut, Pencil, Check, X, Trash2, Info } from 'lucide-react-native';
+import { Moon, Sun, Monitor, LogOut, Pencil, Check, X, Trash2, Info, Shield, FileText } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import { cn } from '@/lib/utils';
 import { getFirebaseErrorMessage } from '@/lib/utils';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { updateDisplayName, uploadAvatar } from '@/lib/profile';
+import { links } from '@/constants/links';
 import type { ColorScheme } from '@/types';
 
 const themeOptions: { value: ColorScheme; label: string; icon: React.ElementType }[] = [
@@ -187,6 +188,16 @@ export default function ProfileScreen() {
               value={themeOptions.find((t) => t.value === colorScheme)?.label}
               valueClassName="font-medium text-foreground"
               onPress={() => setThemeDialogOpen(true)}
+            />
+            <SettingRow
+              icon={Shield}
+              label="Política de privacidad"
+              onPress={() => Linking.openURL(links.privacyPolicy)}
+            />
+            <SettingRow
+              icon={FileText}
+              label="Términos de uso"
+              onPress={() => Linking.openURL(links.termsOfService)}
             />
           </CardContent>
         </Card>

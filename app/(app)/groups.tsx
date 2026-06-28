@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { copy } from '@/constants/copy';
+import { LIMITS } from '@/constants/limits';
 import type { Group } from '@/types';
 
 const createSchema = z.object({
@@ -41,6 +42,7 @@ export default function GroupsScreen() {
   } = useGroupsStore();
   const { toast } = useToast();
   const [modal, setModal] = React.useState<ModalMode>(null);
+  const atWallLimit = groups.length >= LIMITS.WALLS_PER_USER;
 
   const createForm = useForm({ resolver: zodResolver(createSchema), defaultValues: { name: '' } });
   const joinForm = useForm({ resolver: zodResolver(joinSchema), defaultValues: { code: '' } });
@@ -214,16 +216,22 @@ export default function GroupsScreen() {
         <View className="flex-row items-center justify-between pt-4">
           <Text variant="h2">{copy.tabWalls}</Text>
           <View className="flex-row gap-2">
-            <Button size="sm" variant="outline" onPress={() => setModal('join')}>
+            <Button size="sm" variant="outline" disabled={atWallLimit} onPress={() => setModal('join')}>
               <Hash size={14} />
               <Text variant="small" className="ml-1">Unirme</Text>
             </Button>
-            <Button size="sm" onPress={() => setModal('create')}>
+            <Button size="sm" disabled={atWallLimit} onPress={() => setModal('create')}>
               <Plus size={14} />
               <Text variant="small" className="ml-1 text-primary-foreground">Crear</Text>
             </Button>
           </View>
         </View>
+
+        {atWallLimit && (
+          <Text variant="small" className="text-muted-foreground -mt-1">
+            Llegaste al máximo de {LIMITS.WALLS_PER_USER} walls. Salí de uno para crear o unirte a otro.
+          </Text>
+        )}
 
         {groups.length === 0 && !isLoading ? (
           <View className="flex-1 items-center justify-center gap-3 pb-20">

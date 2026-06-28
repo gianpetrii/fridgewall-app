@@ -73,6 +73,26 @@ const withWidgetFiles = (config) => {
   ]);
 };
 
+/**
+ * Setea build settings directamente en las configuraciones (Debug/Release) del
+ * target. A diferencia de project.addBuildProperty(), acá controlamos el valor
+ * exacto, por lo que podemos escribir TARGETED_DEVICE_FAMILY entre comillas
+ * ("1,2"). El bug histórico era que addBuildProperty escribía `1,2` sin comillas,
+ * lo que rompía el parseo del .pbxproj y CocoaPods.
+ */
+const setTargetBuildSettings = (project, targetUuid, settings) => {
+  const nativeTarget = project.pbxNativeTargetSection()[targetUuid];
+  const configListUuid = nativeTarget.buildConfigurationList;
+  const configList = project.pbxXCConfigurationList()[configListUuid];
+  const xcConfigSection = project.pbxXCBuildConfigurationSection();
+  configList.buildConfigurations.forEach((entry) => {
+    const buildSettings = xcConfigSection[entry.value].buildSettings;
+    Object.keys(settings).forEach((key) => {
+      buildSettings[key] = settings[key];
+    });
+  });
+};
+
 const withWidgetTarget = (config) => {
   return withXcodeProject(config, (mod) => {
     const project = mod.modResults;
@@ -93,31 +113,48 @@ const withWidgetTarget = (config) => {
     const mainGroupId = project.getFirstProject().firstProject.mainGroup;
     project.addToPbxGroup(widgetGroup.uuid, mainGroupId);
 
-    project.addTarget(
+    const target = project.addTarget(
       targetName,
       'app_extension',
       targetName,
       WIDGET_BUNDLE_ID,
     );
 
-    project.addBuildProperty('SWIFT_VERSION', '5.0', 'Debug', targetName);
-    project.addBuildProperty('SWIFT_VERSION', '5.0', 'Release', targetName);
-    project.addBuildProperty('TARGETED_DEVICE_FAMILY', '1,2', 'Debug', targetName);
-    project.addBuildProperty('TARGETED_DEVICE_FAMILY', '1,2', 'Release', targetName);
-    project.addBuildProperty('IPHONEOS_DEPLOYMENT_TARGET', '16.0', 'Debug', targetName);
-    project.addBuildProperty('IPHONEOS_DEPLOYMENT_TARGET', '16.0', 'Release', targetName);
-    project.addBuildProperty(
-      'CODE_SIGN_ENTITLEMENTS',
-      `${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements`,
-      'Debug',
-      targetName,
+    // Sources: compila el .swift. Resources/Frameworks vacíos (WidgetKit y
+    // SwiftUI se auto-enlazan vía `import` en Swift, no hace falta listarlos).
+    project.addBuildPhase(
+      ['FridgeWallWidget.swift'],
+      'PBXSourcesBuildPhase',
+      'Sources',
+      target.uuid,
     );
-    project.addBuildProperty(
-      'CODE_SIGN_ENTITLEMENTS',
-      `${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements`,
-      'Release',
-      targetName,
-    );
+    project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', target.uuid);
+    project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', target.uuid);
+
+    setTargetBuildSettings(project, target.uuid, {
+      PRODUCT_NAME: '"$(TARGET_NAME)"',
+      PRODUCT_BUNDLE_IDENTIFIER: WIDGET_BUNDLE_ID,
+      INFOPLIST_FILE: `${WIDGET_TARGET}/Info.plist`,
+      CODE_SIGN_ENTITLEMENTS: `${WIDGET_TARGET}/${WIDGET_TARGET}.entitlements`,
+      SWIFT_VERSION: '5.0',
+      TARGETED_DEVICE_FAMILY: '"1,2"',
+      // iOS 17: el widget usa AppIntentConfiguration + botones interactivos
+      // (Button(intent:)), que requieren deployment target 17.0. Con 16.0 el
+      // compilador falla con "AppIntent requires 'perform' available in app
+      // extensions for iOS 16.0 and newer".
+      IPHONEOS_DEPLOYMENT_TARGET: '17.0',
+      APPLICATION_EXTENSION_API_ONLY: 'YES',
+      GENERATE_INFOPLIST_FILE: 'YES',
+      SKIP_INSTALL: 'YES',
+      CURRENT_PROJECT_VERSION: '1',
+      MARKETING_VERSION: '1.0.0',
+      INFOPLIST_KEY_CFBundleDisplayName: 'FridgeWall',
+      LD_RUNPATH_SEARCH_PATHS:
+        '"$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"',
+    });
+
+    // Nota: project.addTarget() ya crea la fase "Copy Files" (PlugIns) que embebe
+    // el .appex en la app principal, por lo que no agregamos una fase extra.
 
     return mod;
   });
@@ -126,10 +163,7 @@ const withWidgetTarget = (config) => {
 const withIOSWidget = (config) => {
   config = withAppGroupEntitlement(config);
   config = withWidgetFiles(config);
-  // withWidgetTarget desactivado: la manipulaci\u00f3n autom\u00e1tica del .pbxproj
-  // genera valores sin comillas en TARGETED_DEVICE_FAMILY y rompe CocoaPods.
-  // El Widget Extension target se agrega manualmente en Xcode una sola vez
-  // (ver instrucciones en plugins/WIDGET_SETUP.md).
+  config = withWidgetTarget(config);
   return config;
 };
 

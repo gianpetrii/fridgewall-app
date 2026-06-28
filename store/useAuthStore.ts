@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -21,6 +22,7 @@ interface AuthStore extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -96,6 +98,70 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
+  signInWithApple: async () => {
+    set({ isLoading: true });
+    try {
+      const AppleAuthentication = await import('expo-apple-authentication');
+      const Crypto = await import('expo-crypto');
+
+      // Apple exige un nonce hasheado (SHA256) en la solicitud y Firebase requiere
+      // el nonce en crudo para validar la credencial.
+      const rawNonce = generateNonce();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('No se pudo obtener el token de Apple');
+      }
+
+      const provider = new OAuthProvider('apple.com');
+      const firebaseCredential = provider.credential({
+        idToken: credential.identityToken,
+        rawNonce,
+      });
+      const { user: firebaseUser } = await signInWithCredential(auth, firebaseCredential);
+
+      // Apple solo entrega el nombre en el PRIMER inicio de sesión.
+      const appleName = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (!userDoc.exists()) {
+        const displayName = appleName || firebaseUser.displayName || 'Usuario';
+        if (!firebaseUser.displayName && displayName) {
+          await updateProfile(firebaseUser, { displayName });
+        }
+        await setDoc(doc(db, 'users', firebaseUser.uid), {
+          name: displayName,
+          email: firebaseUser.email ?? credential.email ?? null,
+          avatarUrl: null,
+          pushToken: null,
+          createdAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      // El usuario canceló el diálogo nativo: no es un error que mostrar.
+      if (err instanceof Error && 'code' in err && (err as { code?: string }).code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   login: async (email, password) => {
     set({ isLoading: true });
     try {
@@ -161,3 +227,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   setUser: (user) => set({ user }),
 }));
+
+/** Genera un nonce aleatorio para el flujo de Sign in with Apple. */
+function generateNonce(length = 32): string {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += charset[Math.floor(Math.random() * charset.length)];
+  }
+  return result;
+}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  assertCanPost,
   createPost,
   deletePost,
   subscribeToGroupPosts,
@@ -48,6 +49,7 @@ export const usePostsStore = create<PostsStore>((set, get) => ({
   uploadAndPost: async (groupId, userId, userName, localUri, caption) => {
     set({ isUploading: true, uploadProgress: 0 });
     try {
+      await assertCanPost(groupId, userId);
       const photoUrl = await uploadPostPhoto(groupId, userId, localUri, (pct) =>
         set({ uploadProgress: pct }),
       );

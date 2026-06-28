@@ -103,6 +103,13 @@ struct WallSelectionIntent: WidgetConfigurationIntent {
 
     @Parameter(title: "Wall")
     var wall: WallEntity?
+
+    // perform() explícito: con deployment target 16.0 el default de
+    // WidgetConfigurationIntent no está disponible en app extensions. Un intent
+    // de configuración no ejecuta acción, solo devuelve el resultado.
+    func perform() async throws -> some IntentResult {
+        return .result()
+    }
 }
 
 // MARK: - Advance photo intent (iOS 17+: avanza a la siguiente foto sin abrir la app)

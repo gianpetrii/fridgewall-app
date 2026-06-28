@@ -18,6 +18,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.fridgewall.app',
+    buildNumber: '1',
+    usesAppleSignIn: true,
     infoPlist: {
       NSPhotoLibraryUsageDescription: 'FridgeWall necesita acceso a tu galería para compartir fotos en tu wall.',
       NSCameraUsageDescription: 'FridgeWall necesita acceso a tu cámara para tomar fotos.',
@@ -25,6 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.fridgewall.app',
+    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#09090b',
@@ -45,10 +48,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-font',
     'expo-image-picker',
+    'expo-apple-authentication',
     ['@react-native-google-signin/google-signin', {
       iosUrlScheme: 'com.googleusercontent.apps.88096637600-hrf94mmu0hakrqj92anip6fcoihae7e7',
     }],
     './plugins/withIOSWidget.js',
+    './plugins/withFirebaseModularHeaders.js',
     './plugins/withoutPushNotifications.js',
     [
       'react-native-android-widget',
