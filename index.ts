@@ -1,5 +1,11 @@
+import './tasks/backgroundWidgetSync';
 import 'expo-router/entry';
-import { registerWidgetTaskHandler } from 'react-native-android-widget';
-import { widgetTaskHandler } from './widgets/widgetTaskHandler';
+import { Platform } from 'react-native';
 
-registerWidgetTaskHandler(widgetTaskHandler);
+if (Platform.OS === 'android') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { registerWidgetTaskHandler } = require('react-native-android-widget');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { widgetTaskHandler } = require('./widgets/widgetTaskHandler');
+  registerWidgetTaskHandler(widgetTaskHandler);
+}

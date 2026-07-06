@@ -19,10 +19,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: 'com.fridgewall.app',
     buildNumber: '1',
+    appleTeamId: '53M8KYX8G4',
     usesAppleSignIn: true,
     infoPlist: {
       NSPhotoLibraryUsageDescription: 'FridgeWall necesita acceso a tu galería para compartir fotos en tu wall.',
       NSCameraUsageDescription: 'FridgeWall necesita acceso a tu cámara para tomar fotos.',
+      ITSAppUsesNonExemptEncryption: false,
+      UIBackgroundModes: ['fetch'],
     },
   },
   android: {

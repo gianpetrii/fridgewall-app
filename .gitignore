@@ -45,6 +45,9 @@ functions/ios/
 *.swp
 *.swo
 
+# App Store assets (capturas, metadata local — no versionar)
+app-store/
+
 # Firebase credentials (no subir)
 GoogleService-Info.plist
 google-services.json

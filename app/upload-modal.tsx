@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
 import { usePostsStore } from '@/store/usePostsStore';
 import { returnToDeviceHome } from '@/lib/deviceHome';
+import { exitToAppHome, dismissAllModals } from '@/lib/exitToAppHome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { prependPhotoToPayload } from '@/widgets/buildPayload';
 import { WIDGET_DATA_KEY } from '@/widgets/widgetTaskHandler';
@@ -48,28 +49,36 @@ export default function UploadModal() {
 
 function UploadModalContent() {
   const router = useRouter();
-  const { source, uri: editedUri, fromEditor, reopenPicker, fromWidget, retryFailed } = useLocalSearchParams<{
+  const { source, uri: editedUri, fromEditor, reopenPicker, fromWidget, retryFailed, _s } = useLocalSearchParams<{
     source?: Source;
     uri?: string;
     fromEditor?: string;
     reopenPicker?: string;
     fromWidget?: string;
     retryFailed?: string;
+    _s?: string;
   }>();
 
-  const safeClose = React.useCallback(() => {
+  const goToAppHome = React.useCallback(() => {
+    if (retryFailed === '1') {
+      void AsyncStorage.removeItem(FAILED_UPLOAD_KEY);
+    }
+    exitToAppHome(router);
+  }, [router, retryFailed]);
+
+  const finishAfterSuccessfulUpload = React.useCallback(() => {
     if (retryFailed === '1') {
       void AsyncStorage.removeItem(FAILED_UPLOAD_KEY);
     }
     if (fromWidget === '1') {
-      returnToDeviceHome();
+      dismissAllModals(router);
+      setTimeout(() => returnToDeviceHome(), 150);
       return;
     }
-    // Siempre navegar al home directamente para limpiar el stack de modales
-    // (upload-modal → photo-editor → upload-modal genera un stack con varias
-    // instancias que router.dismiss() no limpia del todo)
-    router.replace('/(app)');
+    exitToAppHome(router);
   }, [router, fromWidget, retryFailed]);
+
+  const safeClose = goToAppHome;
 
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
@@ -117,8 +126,16 @@ function UploadModalContent() {
     if (fromEditor === '1' && editedUri) {
       setPendingUri(editedUri);
       setLaunched(true);
+      return;
     }
-  }, [fromEditor, editedUri]);
+    if (!source) return;
+    setPendingUri(null);
+    setCaption('');
+    setIsSubmitting(false);
+    setUploadPhase('uploading');
+    setDisplayProgress(0);
+    setLaunched(false);
+  }, [source, fromEditor, editedUri, _s, reopenPicker, retryFailed]);
 
   // El store resetea uploadProgress a 0 en su bloque finally antes de resolver.
   // Usamos displayProgress para nunca mostrar la barra retrocediendo.
@@ -295,18 +312,13 @@ function UploadModalContent() {
   }, [animateDropdown]);
 
   const handleCancelPublish = () => {
+    if (uploadPhase === 'done') {
+      goToAppHome();
+      return;
+    }
     if (retryFailed === '1') {
       void AsyncStorage.removeItem(FAILED_UPLOAD_KEY);
       safeClose();
-      return;
-    }
-    if (fromWidget === '1') {
-      returnToDeviceHome();
-      return;
-    }
-    if (source) {
-      // Volver al selector de fuente en vez de re-abrir el mismo picker
-      router.replace(`/upload-modal${fromWidget === '1' ? '?fromWidget=1' : ''}`);
       return;
     }
     safeClose();
@@ -344,8 +356,6 @@ function UploadModalContent() {
       await AsyncStorage.removeItem(FAILED_UPLOAD_KEY);
       setUploadPhase('done');
 
-      // Ejecutar el widget save (directo, sin queue) y el timer de "done" en paralelo.
-      // La copia de archivo local tarda < 300ms, así que siempre completa antes del cierre.
       await Promise.all([
         (async () => {
           try {
@@ -354,16 +364,16 @@ function UploadModalContent() {
                 saveWidgetDataDirect(payload),
                 saveWidgetDataForGroupDirect(group.id, payload),
               ]),
-              new Promise<void>((r) => setTimeout(r, 2500)), // timeout de seguridad
+              new Promise<void>((r) => setTimeout(r, 2500)),
             ]);
           } catch {
             // silencioso
           }
         })(),
-        new Promise<void>((r) => setTimeout(r, 1500)), // mensaje de éxito por 1.5s
+        new Promise<void>((r) => setTimeout(r, 1500)),
       ]);
 
-      safeClose();
+      finishAfterSuccessfulUpload();
     } catch (err) {
       setIsSubmitting(false);
       setUploadPhase('uploading' as const);
@@ -449,14 +459,14 @@ function UploadModalContent() {
     <Pressable className="flex-1 bg-background" style={{ paddingTop: insets.top + 16, paddingHorizontal: 16 }} onPress={Keyboard.dismiss}>
       <View className="flex-row items-center justify-between pb-4">
         <Text variant="h3">Publicar</Text>
-        {!isSubmitting && (
+        {!isSubmitting || uploadPhase === 'done' ? (
           <Pressable
-            onPress={handleCancelPublish}
+            onPress={uploadPhase === 'done' ? goToAppHome : handleCancelPublish}
             className="w-8 h-8 items-center justify-center rounded-full bg-muted"
           >
             <X size={18} color="#71717a" />
           </Pressable>
-        )}
+        ) : null}
       </View>
 
       <Image

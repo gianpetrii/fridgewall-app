@@ -33,10 +33,9 @@ struct WidgetData: Codable {
 }
 
 private let appGroupId = "group.com.fridgewall.app"
-// Rotación automática por recarga programada. No puede ser cada pocos segundos
-// (iOS limita las recargas); este intervalo es lo que el sistema mantiene estable
-// y permite que el tap sea instantáneo (no usamos entries futuras).
-private let autoRotateSec = 15 * 60
+// Rotación automática por recarga programada. iOS limita la frecuencia real de
+// recargas; 2 min es lo más agresivo que el sistema suele respetar con estabilidad.
+private let autoRotateSec = 2 * 60
 private let widgetDataKey = "fridgewall_widget_data"
 private let allGroupsKey = "fridgewall_all_groups"
 

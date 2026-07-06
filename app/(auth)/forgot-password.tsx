@@ -73,11 +73,11 @@ export default function ForgotPasswordScreen() {
           <Text variant="muted">Volver</Text>
         </Pressable>
 
-        <View className="mb-10">
-          <Text variant="h2" className="mb-2">
+        <View className="mb-10 items-center">
+          <Text variant="h2" className="mb-2 text-center">
             Recuperar contraseña
           </Text>
-          <Text variant="muted">
+          <Text variant="muted" className="text-center">
             Ingresá tu email y te enviaremos las instrucciones para restablecer tu contraseña.
           </Text>
         </View>

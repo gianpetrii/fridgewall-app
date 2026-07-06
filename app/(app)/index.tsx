@@ -281,6 +281,9 @@ export default function HomeScreen() {
           <FlatList
             data={groups}
             keyExtractor={(item) => item.id}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
+            bounces={groups.length > 2}
             renderItem={({ item }) => (
               <GroupCard
                 group={item}
@@ -293,7 +296,7 @@ export default function HomeScreen() {
                 onLeave={() => handleLeaveGroup(item)}
               />
             )}
-            contentContainerClassName="gap-3 pb-8"
+            contentContainerClassName="gap-3"
             showsVerticalScrollIndicator={false}
           />
         )}

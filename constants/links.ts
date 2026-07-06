@@ -2,5 +2,6 @@
 export const links = {
   privacyPolicy: 'https://fridgewall-legal.vercel.app/privacy',
   termsOfService: 'https://fridgewall-legal.vercel.app/terms',
-  support: 'mailto:soporte@fridgewall.app',
+  support: 'https://fridgewall-legal.vercel.app/support',
+  supportEmail: 'mailto:gianluca.petri.98@icloud.com',
 } as const;

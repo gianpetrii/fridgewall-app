@@ -6,7 +6,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { cn } from '@/lib/utils';
 import { AnimatedScreen } from './AnimatedScreen';
 
@@ -16,6 +16,7 @@ interface ScreenProps extends ScrollViewProps {
   refreshing?: boolean;
   onRefresh?: () => void;
   safeArea?: boolean;
+  safeAreaEdges?: Edge[];
   animated?: boolean;
   containerProps?: ViewProps;
 }
@@ -28,12 +29,11 @@ function Screen({
   refreshing,
   onRefresh,
   safeArea = true,
+  safeAreaEdges,
   animated = true,
   containerProps,
   ...props
 }: ScreenProps) {
-  const Wrapper = safeArea ? SafeAreaView : View;
-
   const content = !scrollable ? (
     <View
       {...containerProps}
@@ -64,10 +64,21 @@ function Screen({
     </KeyboardAwareScrollView>
   );
 
+  if (!safeArea) {
+    return (
+      <View className="flex-1 bg-background">
+        <AnimatedScreen disabled={!animated}>{content}</AnimatedScreen>
+      </View>
+    );
+  }
+
   return (
-    <Wrapper className="flex-1 bg-background">
+    <SafeAreaView
+      className="flex-1 bg-background"
+      edges={safeAreaEdges ?? ['top', 'left', 'right']}
+    >
       <AnimatedScreen disabled={!animated}>{content}</AnimatedScreen>
-    </Wrapper>
+    </SafeAreaView>
   );
 }
 

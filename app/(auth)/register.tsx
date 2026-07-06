@@ -54,12 +54,12 @@ export default function RegisterScreen() {
   return (
     <KeyboardView>
       <View className="flex-1 justify-center px-6 py-12 bg-background">
-        <View className="mb-10">
-          <Text className="text-4xl mb-1">🧲</Text>
-          <Text variant="h2" className="mb-2">
+        <View className="mb-10 items-center">
+          <Text className="text-4xl mb-1 text-center">🧲</Text>
+          <Text variant="h2" className="mb-2 text-center">
             Crear cuenta
           </Text>
-          <Text variant="muted">Completá el formulario para empezar</Text>
+          <Text variant="muted" className="text-center">Completá el formulario para empezar</Text>
         </View>
 
         <View className="gap-4">

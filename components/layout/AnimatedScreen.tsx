@@ -21,10 +21,6 @@ function AnimatedScreen({ children, disabled = false }: AnimatedScreenProps) {
       if (disabled) return;
       opacity.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
       translateY.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.cubic) });
-      return () => {
-        opacity.value = 0;
-        translateY.value = 14;
-      };
     }, [disabled, opacity, translateY]),
   );
 

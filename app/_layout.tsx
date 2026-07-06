@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { advanceWidgetCarousel } from '@/widgets/updateWidget';
 import { returnToDeviceHome } from '@/lib/deviceHome';
+import { openRootModal } from '@/lib/exitToAppHome';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useThemeStore } from '@/store/useThemeStore';
@@ -52,13 +53,13 @@ function DeepLinkHandler() {
           returnToDeviceHome();
         });
       } else if (url.includes('select-wall')) {
-        router.push('/select-wall?fromWidget=1');
+        openRootModal(router, `/select-wall?fromWidget=1&_s=${Date.now()}`);
       } else if (url.includes('camera')) {
-        router.push('/upload-modal?source=camera&fromWidget=1');
+        openRootModal(router, `/upload-modal?source=camera&fromWidget=1&_s=${Date.now()}`);
       } else if (url.includes('gallery')) {
-        router.push('/upload-modal?source=gallery&fromWidget=1');
+        openRootModal(router, `/upload-modal?source=gallery&fromWidget=1&_s=${Date.now()}`);
       } else if (url.includes('upload')) {
-        router.push('/upload-modal?fromWidget=1');
+        openRootModal(router, `/upload-modal?fromWidget=1&_s=${Date.now()}`);
       }
     },
     [user, isInitialized, router],

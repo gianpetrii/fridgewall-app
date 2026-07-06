@@ -1,71 +1,83 @@
 import * as React from 'react';
 import { AppState } from 'react-native';
-import { saveWidgetData, saveWidgetDataForGroup, saveGroupsList } from '@/widgets/updateWidget';
-import { buildWidgetPayload } from '@/widgets/buildPayload';
-import { getGroupPosts } from '@/lib/posts';
+import type { Unsubscribe } from 'firebase/firestore';
+import { saveGroupsList } from '@/widgets/updateWidget';
+import { subscribeToGroupPosts, getGroupPosts } from '@/lib/posts';
+import { syncGroupWidgetData } from '@/lib/widgetSyncService';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupsStore } from '@/store/useGroupsStore';
-import { usePostsStore } from '@/store/usePostsStore';
+import { registerBackgroundWidgetSync } from '@/tasks/backgroundWidgetSync';
 
-/** Mantiene el widget actualizado sin mostrar el feed en la app. */
+/** Mantiene el widget sincronizado con Firestore (tiempo real + background). */
 export function useWidgetSync() {
   const { user } = useAuthStore();
-  const { groups, activeGroupId, fetchGroups } = useGroupsStore();
-  const { posts, subscribeToGroup } = usePostsStore();
+  const { groups, fetchGroups } = useGroupsStore();
 
   React.useEffect(() => {
     if (user) fetchGroups(user.id);
   }, [user, fetchGroups]);
 
-  // Sincroniza la lista de grupos disponibles para la configuración del widget
+  React.useEffect(() => {
+    if (!user?.id) return;
+    void registerBackgroundWidgetSync().catch(() => {});
+  }, [user?.id]);
+
   React.useEffect(() => {
     if (groups.length === 0) return;
     saveGroupsList(groups.map((g) => ({ id: g.id, name: g.name })));
   }, [groups]);
 
+  // Escucha en tiempo real TODOS los walls (no solo el activo).
   React.useEffect(() => {
-    if (!user?.id || !activeGroupId) return;
-    return subscribeToGroup(activeGroupId);
-  }, [activeGroupId, user?.id, subscribeToGroup]);
+    if (!user?.id || groups.length === 0) return;
 
-  React.useEffect(() => {
-    if (posts.length === 0 || !activeGroupId) return;
-    const activeGroup = groups.find((g) => g.id === activeGroupId);
-    if (!activeGroup) return;
-    const payload = buildWidgetPayload(posts, activeGroup);
-    // Debounce: si posts/groups cambian varias veces en ráfaga (múltiples
-    // snapshots de Firestore), solo guardamos una vez al final.
-    const timer = setTimeout(() => {
-      saveWidgetData(payload);
-      saveWidgetDataForGroup(activeGroupId, payload);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [posts, activeGroupId, groups]);
+    const debouncers = new Map<string, ReturnType<typeof setTimeout>>();
+    const unsubs: Unsubscribe[] = [];
 
-  // Sincroniza TODOS los grupos del usuario (no solo el activo) reconstruyendo
-  // cada widget desde los posts reales de Firestore. Así el widget refleja
-  // borrados, vencimientos (>24h) y evita arrastrar fotos de otra wall.
-  // Corre al montar y cada vez que la app vuelve a primer plano.
+    for (const group of groups) {
+      const unsub = subscribeToGroupPosts(group.id, (posts) => {
+        const pending = debouncers.get(group.id);
+        if (pending) clearTimeout(pending);
+
+        debouncers.set(
+          group.id,
+          setTimeout(() => {
+            void syncGroupWidgetData(group, posts);
+          }, 500),
+        );
+      });
+      unsubs.push(unsub);
+    }
+
+    return () => {
+      for (const unsub of unsubs) unsub();
+      for (const timer of debouncers.values()) clearTimeout(timer);
+    };
+  }, [user?.id, groups]);
+
+  // Respaldo al abrir la app o volver a primer plano.
   React.useEffect(() => {
     if (!user?.id || groups.length === 0) return;
 
     let cancelled = false;
-    const syncAllGroups = async () => {
+    const run = async () => {
+      if (!user?.id) return;
       for (const group of groups) {
         try {
-          const groupPosts = await getGroupPosts(group.id);
+          const posts = await getGroupPosts(group.id);
           if (cancelled) return;
-          await saveWidgetDataForGroup(group.id, buildWidgetPayload(groupPosts, group));
+          await syncGroupWidgetData(group, posts);
         } catch {
-          // grupo individual falla: seguimos con el resto
+          // seguir con el resto
         }
       }
     };
 
-    syncAllGroups();
+    run();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') syncAllGroups();
+      if (state === 'active') run();
     });
+
     return () => {
       cancelled = true;
       sub.remove();

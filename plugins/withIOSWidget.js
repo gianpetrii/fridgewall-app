@@ -160,7 +160,43 @@ const withWidgetTarget = (config) => {
   });
 };
 
+/**
+ * Declara la extensión en app config para que EAS genere credenciales y
+ * provisioning profiles *antes* del prebuild. Sin esto, el target del widget
+ * queda sin team/profile y el build falla con errores de code signing.
+ * @see https://docs.expo.dev/build-reference/app-extensions/
+ */
+const withEasAppExtension = (config) => {
+  const appExtension = {
+    targetName: WIDGET_TARGET,
+    bundleIdentifier: WIDGET_BUNDLE_ID,
+    entitlements: {
+      'com.apple.security.application-groups': [APP_GROUP],
+    },
+  };
+
+  config.extra = config.extra ?? {};
+  config.extra.eas = config.extra.eas ?? {};
+  config.extra.eas.build = config.extra.eas.build ?? {};
+  config.extra.eas.build.experimental = config.extra.eas.build.experimental ?? {};
+  config.extra.eas.build.experimental.ios = config.extra.eas.build.experimental.ios ?? {};
+
+  const existing = config.extra.eas.build.experimental.ios.appExtensions ?? [];
+  const alreadyDeclared = existing.some(
+    (ext) => ext.bundleIdentifier === WIDGET_BUNDLE_ID,
+  );
+  if (!alreadyDeclared) {
+    config.extra.eas.build.experimental.ios.appExtensions = [
+      ...existing,
+      appExtension,
+    ];
+  }
+
+  return config;
+};
+
 const withIOSWidget = (config) => {
+  config = withEasAppExtension(config);
   config = withAppGroupEntitlement(config);
   config = withWidgetFiles(config);
   config = withWidgetTarget(config);
