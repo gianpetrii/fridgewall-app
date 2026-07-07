@@ -35,5 +35,18 @@ Copiá [`.env.local.example`](.env.local.example) y configurá las claves `EXPO_
 
 ## Roadmap de features
 
-- [] Push Notifications
-- [] Paid subscriptions
+### v1.1
+- [ ] Push notifications (aviso cuando alguien sube una foto al wall)
+- [ ] Visor fullscreen al tocar el widget
+- [ ] Modo simple "solo fotos" (pantalla completa, mínima UI — accesibilidad)
+
+### v1.2
+- [ ] Widget de Lock Screen (foto del wall en pantalla bloqueada)
+- [ ] Widget en modo StandBy (iPhone cargando)
+- [ ] Modo accesible (texto y controles más grandes)
+
+### v1.3
+- [ ] Live Activity al publicar / recibir foto nueva (estilo atajo en lock screen)
+
+### Más adelante
+- [ ] Suscripciones de pago
