@@ -51,3 +51,6 @@ app-store/
 # Firebase credentials (no subir)
 GoogleService-Info.plist
 google-services.json
+
+# Google Play submit (no subir)
+play-store-service-account.json

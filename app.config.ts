@@ -31,6 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.fridgewall.app',
     versionCode: 1,
+    // Local: ./google-services.json | EAS: secret GOOGLE_SERVICES_JSON (tipo file)
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#09090b',
