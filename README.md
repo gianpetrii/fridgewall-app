@@ -41,6 +41,9 @@ Copiá [`.env.local.example`](.env.local.example) y configurá las claves `EXPO_
 - [ ] Modo simple "solo fotos" (pantalla completa, mínima UI — accesibilidad)
 
 ### v1.2
+- [ ] Reacciones desde el widget (UX invisible — prioridad máxima)
+  - Ideal: reaccionar sin salir del home (App Intent / botón en widget, sin abrir la app)
+  - Fallback: mismo patrón que publicar foto (widget abre la app en background, registra la reacción y vuelve al home del dispositivo sin que el usuario note el cambio)
 - [ ] Widget de Lock Screen (foto del wall en pantalla bloqueada)
 - [ ] Widget en modo StandBy (iPhone cargando)
 - [ ] Modo accesible (texto y controles más grandes)
