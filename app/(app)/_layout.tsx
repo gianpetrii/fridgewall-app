@@ -1,4 +1,5 @@
 "use client";
+import '@/tasks/backgroundWidgetSync';
 import * as React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Home, Users, User } from 'lucide-react-native';

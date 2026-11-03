@@ -59,6 +59,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     }],
     './plugins/withIOSWidget.js',
     './plugins/withFirebaseModularHeaders.js',
+    './plugins/withAndroidKotlinVersion.js',
     './plugins/withoutPushNotifications.js',
     [
       'react-native-android-widget',

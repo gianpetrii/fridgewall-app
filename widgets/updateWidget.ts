@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { WIDGET_DATA_KEY } from './widgetTaskHandler';
+import { createFridgeWallWidgetElement } from './renderFridgeWallWidget';
 import type { StoredWidgetData, GroupInfo } from './types';
 import {
   saveWidgetDataNative,
@@ -20,7 +21,11 @@ export async function saveWidgetData(data: StoredWidgetData): Promise<void> {
       const { requestWidgetUpdate } = await import('react-native-android-widget');
       await requestWidgetUpdate({
         widgetName: 'FridgeWall',
-        renderWidget: async () => {},
+        renderWidget: async () => {
+          const raw = await AsyncStorage.getItem(WIDGET_DATA_KEY);
+          const stored = raw ? (JSON.parse(raw) as StoredWidgetData) : data;
+          return createFridgeWallWidgetElement(stored);
+        },
       });
     } else if (Platform.OS === 'ios') {
       await saveWidgetDataNative(data);
@@ -35,7 +40,14 @@ export async function saveWidgetDataForGroup(groupId: string, data: StoredWidget
   console.log('[Widget] saveWidgetDataForGroup called, groupId:', groupId, 'photos:', data.photos?.length ?? 0);
   try {
     await AsyncStorage.setItem(`${WIDGET_DATA_KEY}_${groupId}`, JSON.stringify(data));
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'android') {
+      await AsyncStorage.setItem(WIDGET_DATA_KEY, JSON.stringify(data));
+      const { requestWidgetUpdate } = await import('react-native-android-widget');
+      await requestWidgetUpdate({
+        widgetName: 'FridgeWall',
+        renderWidget: async () => createFridgeWallWidgetElement(data),
+      });
+    } else if (Platform.OS === 'ios') {
       const result = await saveWidgetDataForGroupNative(groupId, data);
       console.log('[Widget] saveWidgetDataForGroup native OK', JSON.stringify(result));
     }
@@ -51,7 +63,13 @@ export async function saveWidgetDataForGroup(groupId: string, data: StoredWidget
 export async function saveWidgetDataDirect(data: StoredWidgetData): Promise<void> {
   try {
     await AsyncStorage.setItem(WIDGET_DATA_KEY, JSON.stringify(data));
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'android') {
+      const { requestWidgetUpdate } = await import('react-native-android-widget');
+      await requestWidgetUpdate({
+        widgetName: 'FridgeWall',
+        renderWidget: async () => createFridgeWallWidgetElement(data),
+      });
+    } else if (Platform.OS === 'ios') {
       await saveWidgetDataNativeDirect(data);
     }
   } catch (e) {
@@ -65,7 +83,14 @@ export async function saveWidgetDataForGroupDirect(
 ): Promise<void> {
   try {
     await AsyncStorage.setItem(`${WIDGET_DATA_KEY}_${groupId}`, JSON.stringify(data));
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'android') {
+      await AsyncStorage.setItem(WIDGET_DATA_KEY, JSON.stringify(data));
+      const { requestWidgetUpdate } = await import('react-native-android-widget');
+      await requestWidgetUpdate({
+        widgetName: 'FridgeWall',
+        renderWidget: async () => createFridgeWallWidgetElement(data),
+      });
+    } else if (Platform.OS === 'ios') {
       await saveWidgetDataForGroupNativeDirect(groupId, data);
     }
   } catch {

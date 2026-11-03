@@ -2,6 +2,8 @@ import React from 'react';
 import { FlexWidget, ImageWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetMemberSlot } from './types';
 
+type WidgetImageSource = `http:${string}` | `https:${string}` | `data:image${string}`;
+
 export interface WidgetData {
   photoUrl?: string;
   groupName?: string;
@@ -29,7 +31,7 @@ function EmptyWidget() {
         style={{
           color: '#ffffff',
           fontSize: 15,
-          fontFamily: 'sans-serif-medium',
+          fontWeight: '500',
           marginTop: 6,
         }}
       />
@@ -38,7 +40,6 @@ function EmptyWidget() {
         style={{
           color: '#a1a1aa',
           fontSize: 11,
-          fontFamily: 'sans-serif',
           marginTop: 4,
         }}
       />
@@ -46,13 +47,21 @@ function EmptyWidget() {
   );
 }
 
+/** El nativo solo sabe resolver estos esquemas; otro valor rompe el render del widget. */
+function isRenderableImage(url?: string): url is WidgetImageSource {
+  return (
+    !!url &&
+    (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('data:image'))
+  );
+}
+
 function MemberTile({ slot }: { slot: WidgetMemberSlot }) {
   const initial = (slot.userName ?? slot.userId ?? '?').charAt(0).toUpperCase();
-  if (slot.photoUrl) {
+  if (isRenderableImage(slot.photoUrl)) {
     return (
       <FlexWidget style={{ flex: 1, backgroundColor: '#27272a' }}>
         <ImageWidget
-          image={{ uri: slot.photoUrl }}
+          image={slot.photoUrl}
           imageWidth={120}
           imageHeight={120}
           style={{ width: 'match_parent', height: 'match_parent' }}
@@ -71,7 +80,7 @@ function MemberTile({ slot }: { slot: WidgetMemberSlot }) {
     >
       <TextWidget
         text={initial}
-        style={{ color: '#ffffff', fontSize: 20, fontFamily: 'sans-serif-medium' }}
+        style={{ color: '#ffffff', fontSize: 20, fontWeight: '500' }}
       />
     </FlexWidget>
   );
@@ -108,7 +117,7 @@ function MosaicWidget({ slots, groupName }: { slots: WidgetMemberSlot[]; groupNa
         <FlexWidget style={{ paddingHorizontal: 10, paddingVertical: 6 }}>
           <TextWidget
             text={groupName}
-            style={{ color: '#ffffff', fontSize: 12, fontFamily: 'sans-serif-medium' }}
+            style={{ color: '#ffffff', fontSize: 12, fontWeight: '500' }}
           />
         </FlexWidget>
       ) : null}
@@ -129,7 +138,7 @@ export function FridgeWallWidget({
     return <MosaicWidget slots={memberSlots} groupName={groupName} />;
   }
 
-  if (!photoUrl) {
+  if (!isRenderableImage(photoUrl)) {
     return <EmptyWidget />;
   }
 
@@ -151,7 +160,7 @@ export function FridgeWallWidget({
     >
       <FlexWidget style={{ flex: 1 }}>
         <ImageWidget
-          image={{ uri: photoUrl }}
+          image={photoUrl}
           imageWidth={320}
           imageHeight={280}
           style={{ width: 'match_parent', height: 'match_parent' }}
@@ -174,7 +183,7 @@ export function FridgeWallWidget({
             style={{
               color: '#ffffff',
               fontSize: 13,
-              fontFamily: 'sans-serif-medium',
+              fontWeight: '500',
             }}
           />
           {posterName ? (
@@ -183,7 +192,6 @@ export function FridgeWallWidget({
               style={{
                 color: '#a1a1aa',
                 fontSize: 11,
-                fontFamily: 'sans-serif',
               }}
             />
           ) : null}
@@ -195,7 +203,6 @@ export function FridgeWallWidget({
               style={{
                 color: '#71717a',
                 fontSize: 10,
-                fontFamily: 'sans-serif',
               }}
             />
           ) : null}
@@ -204,7 +211,6 @@ export function FridgeWallWidget({
             style={{
               color: '#71717a',
               fontSize: 11,
-              fontFamily: 'sans-serif',
             }}
           />
         </FlexWidget>
